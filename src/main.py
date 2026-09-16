@@ -1,107 +1,133 @@
-import random
-import sys
 import pygame
-
-W, H = 400, 700
-FPS = 60
+import random
 
 pygame.init()
+# -- розмір вікна
+W = 400
+H = 700
+
 screen = pygame.display.set_mode((W, H))
-pygame.display.set_caption("Flappy Clone")
+pygame.display.set_caption("Flappybirds")
+
 clock = pygame.time.Clock()
-font = pygame.font.Font(None, 45)
 
-bird_x = 90
-bird_y = H // 2
+font = pygame.font.Font(None, 50)
+# -- позиція пташки
+bird_x = 80
+bird_y = 300
 bird_v = 0
+
 pipes = []
-score = 0
 over = False
+start = False
 
+for x in [400, 650]:
+    gap_y = random.randint(150, 450)
+    pipes.append([x, gap_y])
 
-def new_game():
-    global bird_y, bird_v, pipes, score, over
-    bird_y = H // 2
-    bird_v = 0
-    pipes = [[W + 100, random.randint(130, 430), False]]
-    score = 0
-    over = False
-
-
-def add_pipe():
-    y = random.randint(130, 430)
-    pipes.append([W, y, False])
-
-
-def hit():
-    r = pygame.Rect(bird_x - 15, int(bird_y) - 15, 30, 30)
-    if bird_y - 15 <= 0 or bird_y + 15 >= H - 30:
-        return True
-    for x, y, _ in pipes:
-        top = pygame.Rect(x, 0, 60, y - 90)
-        bot = pygame.Rect(x, y + 90, 60, H - y - 90)
-        if r.colliderect(top) or r.colliderect(bot):
-            return True
-    return False
-
-
-new_game()
 run = True
+# -- логіка
 while run:
-    for e in pygame.event.get():
-        if e.type == pygame.QUIT:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
             run = False
-        if e.type == pygame.KEYDOWN:
-            if e.key == pygame.K_ESCAPE:
-                run = False
-            if e.key == pygame.K_SPACE and not over:
-                bird_v = -8
-            if e.key == pygame.K_r and over:
-                new_game()
-        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and not over:
-            bird_v = -8
-        if e.type == pygame.FINGERDOWN and not over:
-            bird_v = -8
 
-    if not over:
-        bird_v += 0.45
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and start and not over:
+                bird_v = -8
+
+            if event.key == pygame.K_r and over:
+                bird_y = 300
+                bird_v = 0
+                over = False
+                start = True
+                pipes = []
+
+                for x in [400, 650]:
+                    gap_y = random.randint(150, 450)
+                    pipes.append([x, gap_y])
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            x = event.pos[0]
+            y = event.pos[1]
+
+            if not start:
+                if 100 < x < 300 and 300 < y < 370:
+                    start = True
+
+            elif not over:
+                bird_v = -8
+
+    if start and not over:
+        bird_v += 0.4
         bird_y += bird_v
 
-        for p in pipes:
-            p[0] -= 3
-            if not p[2] and p[0] + 60 < bird_x:
-                p[2] = True
-                score += 1
+        for pipe in pipes:
+            pipe[0] -= 3
 
-        if pipes[-1][0] < W - 190:
-            add_pipe()
-        pipes = [p for p in pipes if p[0] > -60]
+            if bird_x + 30 > pipe[0] and bird_x < pipe[0] + 70:
+                if bird_y < pipe[1] or bird_y + 30 > pipe[1] + 150:
+                    over = True
 
-        if hit():
+        pipes = [p for p in pipes if p[0] > -70]
+
+        if len(pipes) < 2:
+            x = pipes[-1][0] + 250 if pipes else 400
+            gap_y = random.randint(150, 450)
+            pipes.append([x, gap_y])
+
+        if bird_y < 0 or bird_y + 30 > H:
             over = True
 
-    screen.fill((35, 45, 90))
+    screen.fill((50, 80, 150))
 
-    for p in pipes:
-        x, y, _ = p
-        pygame.draw.rect(screen, (70, 190, 80), (x, 0, 60, y - 90))
-        pygame.draw.rect(screen, (70, 190, 80), (x, y + 90, 60, H - y - 90))
+    if not start:
+        text = font.render("FLAPPY BIRD", True, (255, 255, 255))
+        screen.blit(text, (W // 2 - text.get_width() // 2, 200))
 
-    pygame.draw.rect(screen, (85, 170, 75), (0, H - 30, W, 30))
-    pygame.draw.circle(screen, (245, 205, 55), (bird_x, int(bird_y)), 15)
-    pygame.draw.circle(screen, (30, 30, 30), (bird_x + 6, int(bird_y) - 5), 2)
+        pygame.draw.rect(screen, (70, 180, 80), (100, 300, 200, 70))
 
-    text = font.render(str(score), True, (245, 245, 245))
-    screen.blit(text, (W // 2 - text.get_width() // 2, 20))
+        text = font.render("Грати", True, (255, 255, 255))
+        screen.blit(text, (W // 2 - text.get_width() // 2, 315))
 
-    if over:
-        text = font.render("GAME OVER", True, (220, 70, 70))
-        screen.blit(text, (W // 2 - text.get_width() // 2, H // 2 - 30))
-        text = font.render("R - restart", True, (245, 245, 245))
-        screen.blit(text, (W // 2 - text.get_width() // 2, H // 2 + 20))
+    else:
+        pygame.draw.circle(
+            screen,
+            (255, 220, 0),
+            (bird_x + 15, int(bird_y) + 15),
+            15
+        )
 
-    pygame.display.flip()
-    clock.tick(FPS)
+        for pipe in pipes:
+            x = pipe[0]
+            gap_y = pipe[1]
+
+            pygame.draw.rect(
+                screen,
+                (50, 180, 70),
+                (x, 0, 70, gap_y)
+            )
+
+            pygame.draw.rect(
+                screen,
+                (50, 180, 70),
+                (x, gap_y + 150, 70, H - gap_y - 150)
+            )
+
+        if over:
+            text = font.render("GAME OVER", True, (255, 70, 70))
+            screen.blit(
+                text,
+                (W // 2 - text.get_width() // 2, H // 2 - 30)
+            )
+
+            text = font.render("R - restart", True, (255, 255, 255))
+            screen.blit(
+                text,
+                (W // 2 - text.get_width() // 2, H // 2 + 30)
+            )
+
+    pygame.display.update()
+    clock.tick(60)
 
 pygame.quit()
-sys.exit()
