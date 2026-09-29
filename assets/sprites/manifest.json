@@ -1,0 +1,170 @@
+{
+  "sky": {
+    "file": "bg_sky.png"
+  },
+  "clouds": [
+    {
+      "file": "clouds/cloud_1.png",
+      "x": 14,
+      "y": 47,
+      "w": 168,
+      "h": 94,
+      "speed": 17.0
+    },
+    {
+      "file": "clouds/cloud_2.png",
+      "x": 259,
+      "y": 107,
+      "w": 40,
+      "h": 24,
+      "speed": 7.9
+    },
+    {
+      "file": "clouds/cloud_3.png",
+      "x": 344,
+      "y": 138,
+      "w": 47,
+      "h": 30,
+      "speed": 8.4
+    },
+    {
+      "file": "clouds/cloud_4.png",
+      "x": 4,
+      "y": 235,
+      "w": 89,
+      "h": 47,
+      "speed": 11.4
+    },
+    {
+      "file": "clouds/cloud_5.png",
+      "x": 300,
+      "y": 255,
+      "w": 200,
+      "h": 80,
+      "speed": 19.3
+    },
+    {
+      "file": "clouds/cloud_6.png",
+      "x": 146,
+      "y": 310,
+      "w": 48,
+      "h": 29,
+      "speed": 8.4
+    },
+    {
+      "file": "clouds/cloud_7.png",
+      "x": -48,
+      "y": 380,
+      "w": 96,
+      "h": 37,
+      "speed": 11.9
+    },
+    {
+      "file": "clouds/cloud_8.png",
+      "x": 348,
+      "y": 427,
+      "w": 104,
+      "h": 31,
+      "speed": 12.4
+    }
+  ],
+  "title": [
+    {
+      "file": "title/title_line1.png",
+      "x": 77,
+      "y": 166,
+      "w": 253,
+      "h": 66
+    },
+    {
+      "file": "title/title_line2.png",
+      "x": 122,
+      "y": 225,
+      "w": 163,
+      "h": 71
+    }
+  ],
+  "buttons": {
+    "play": {
+      "file": "buttons/btn_play_sheet.png",
+      "frames": 14,
+      "fw": 246,
+      "fh": 78,
+      "x": 77,
+      "y": 359,
+      "fps": 24,
+      "pause": 3.2
+    },
+    "shop": {
+      "file": "buttons/btn_shop_sheet.png",
+      "frames": 14,
+      "fw": 246,
+      "fh": 73,
+      "x": 77,
+      "y": 439,
+      "fps": 24,
+      "pause": 3.2
+    },
+    "menu": {
+      "file": "buttons/btn_menu_sheet.png",
+      "frames": 14,
+      "fw": 220,
+      "fh": 94,
+      "x": 0,
+      "y": 0,
+      "fps": 24,
+      "pause": 2.4,
+      "trim": [
+        11,
+        18
+      ]
+    }
+  },
+  "settings": {
+    "base": "buttons/btn_settings_base.png",
+    "x": 325,
+    "y": 6,
+    "w": 70,
+    "h": 73,
+    "gear": {
+      "file": "buttons/gear_sheet.png",
+      "frames": 72,
+      "fw": 43,
+      "fh": 43,
+      "fps": 9,
+      "ox": 14,
+      "oy": 11
+    }
+  },
+  "layers": {
+    "far": {
+      "file": "layers/bg_far.png",
+      "y": 487,
+      "w": 800,
+      "h": 143,
+      "period": 800,
+      "factor": 0.12
+    },
+    "bushes": {
+      "file": "layers/bg_bushes.png",
+      "y": 564,
+      "w": 800,
+      "h": 60,
+      "period": 800,
+      "factor": 0.45
+    },
+    "ground": {
+      "file": "layers/bg_ground.png",
+      "y": 624,
+      "w": 800,
+      "h": 76,
+      "period": 800,
+      "factor": 1.0
+    }
+  },
+  "screen": {
+    "w": 400,
+    "h": 700,
+    "ground_y": 624
+  }
+}
