@@ -1,0 +1,243 @@
+{
+  "panel": {
+    "file": "ui/panel.png",
+    "slice": 22
+  },
+  "trophy": {
+    "small": "ui/trophy_small.png",
+    "big": "ui/trophy_big.png"
+  },
+  "buttons": {
+    "en": {
+      "play": {
+        "file": "buttons/en/btn_play_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 78,
+        "x": 64,
+        "y": 359,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "shop": {
+        "file": "buttons/en/btn_shop_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 73,
+        "x": 64,
+        "y": 439,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "record": {
+        "file": "buttons/en/btn_record_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 78,
+        "x": 64,
+        "y": 519,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "menu": {
+        "file": "buttons/en/btn_menu_sheet.png",
+        "frames": 14,
+        "fw": 220,
+        "fh": 94,
+        "x": 0,
+        "y": 0,
+        "fps": 24,
+        "pause": 2.4,
+        "trim": [
+          11,
+          18
+        ]
+      }
+    },
+    "uk": {
+      "play": {
+        "file": "buttons/uk/btn_play_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 78,
+        "x": 64,
+        "y": 359,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "shop": {
+        "file": "buttons/uk/btn_shop_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 73,
+        "x": 64,
+        "y": 439,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "record": {
+        "file": "buttons/uk/btn_record_sheet.png",
+        "frames": 14,
+        "fw": 272,
+        "fh": 78,
+        "x": 64,
+        "y": 519,
+        "fps": 24,
+        "pause": 3.2
+      },
+      "menu": {
+        "file": "buttons/uk/btn_menu_sheet.png",
+        "frames": 14,
+        "fw": 220,
+        "fh": 94,
+        "x": 0,
+        "y": 0,
+        "fps": 24,
+        "pause": 2.4,
+        "trim": [
+          11,
+          18
+        ]
+      }
+    }
+  },
+  "texts": {
+    "en": {
+      "game_over": "text/en/game_over.png",
+      "settings": "text/en/settings.png",
+      "language": "text/en/language.png",
+      "menu_music": "text/en/menu_music.png",
+      "game_music": "text/en/game_music.png",
+      "sounds": "text/en/sounds.png",
+      "window_size": "text/en/window_size.png",
+      "auto": "text/en/auto.png",
+      "fullscreen": "text/en/fullscreen.png",
+      "score": "text/en/score.png",
+      "best": "text/en/best.png",
+      "new_record": "text/en/new_record.png",
+      "coins": "text/en/coins.png",
+      "games": "text/en/games.png",
+      "records": "text/en/records.png",
+      "shop_title": "text/en/shop_title.png",
+      "select": "text/en/select.png",
+      "selected": "text/en/selected.png",
+      "not_enough": "text/en/not_enough.png"
+    },
+    "uk": {
+      "game_over": "text/uk/game_over.png",
+      "settings": "text/uk/settings.png",
+      "language": "text/uk/language.png",
+      "menu_music": "text/uk/menu_music.png",
+      "game_music": "text/uk/game_music.png",
+      "sounds": "text/uk/sounds.png",
+      "window_size": "text/uk/window_size.png",
+      "auto": "text/uk/auto.png",
+      "fullscreen": "text/uk/fullscreen.png",
+      "score": "text/uk/score.png",
+      "best": "text/uk/best.png",
+      "new_record": "text/uk/new_record.png",
+      "coins": "text/uk/coins.png",
+      "games": "text/uk/games.png",
+      "records": "text/uk/records.png",
+      "shop_title": "text/uk/shop_title.png",
+      "select": "text/uk/select.png",
+      "selected": "text/uk/selected.png",
+      "not_enough": "text/uk/not_enough.png"
+    }
+  },
+  "lang_names": {
+    "en": "text/lang_en.png",
+    "uk": "text/lang_uk.png"
+  },
+  "digits": {
+    "0": "text/digits/digit_0.png",
+    "1": "text/digits/digit_1.png",
+    "2": "text/digits/digit_2.png",
+    "3": "text/digits/digit_3.png",
+    "4": "text/digits/digit_4.png",
+    "5": "text/digits/digit_5.png",
+    "6": "text/digits/digit_6.png",
+    "7": "text/digits/digit_7.png",
+    "8": "text/digits/digit_8.png",
+    "9": "text/digits/digit_9.png",
+    "%": "text/digits/digit_percent.png",
+    "×": "text/digits/digit_x.png",
+    "+": "text/digits/digit_plus.png"
+  },
+  "digits_light": {
+    "0": "text/digits_light/digit_0.png",
+    "1": "text/digits_light/digit_1.png",
+    "2": "text/digits_light/digit_2.png",
+    "3": "text/digits_light/digit_3.png",
+    "4": "text/digits_light/digit_4.png",
+    "5": "text/digits_light/digit_5.png",
+    "6": "text/digits_light/digit_6.png",
+    "7": "text/digits_light/digit_7.png",
+    "8": "text/digits_light/digit_8.png",
+    "9": "text/digits_light/digit_9.png",
+    "%": "text/digits_light/digit_percent.png",
+    "×": "text/digits_light/digit_x.png",
+    "+": "text/digits_light/digit_plus.png"
+  },
+  "digits_big": {
+    "0": "text/digits_big/digit_0.png",
+    "1": "text/digits_big/digit_1.png",
+    "2": "text/digits_big/digit_2.png",
+    "3": "text/digits_big/digit_3.png",
+    "4": "text/digits_big/digit_4.png",
+    "5": "text/digits_big/digit_5.png",
+    "6": "text/digits_big/digit_6.png",
+    "7": "text/digits_big/digit_7.png",
+    "8": "text/digits_big/digit_8.png",
+    "9": "text/digits_big/digit_9.png",
+    "%": "text/digits_big/digit_percent.png",
+    "×": "text/digits_big/digit_x.png",
+    "+": "text/digits_big/digit_plus.png"
+  },
+  "pipe": {
+    "body": "pipe/pipe_body.png",
+    "cap": "pipe/pipe_cap.png",
+    "neck": "pipe/pipe_neck.png",
+    "body_w": 62,
+    "cap_w": 70,
+    "cap_h": 26
+  },
+  "bird": {
+    "file": "bird/bird_sheet.png",
+    "frames": 4,
+    "fw": 42,
+    "fh": 34,
+    "fps": 12
+  },
+  "skins": [
+    {
+      "id": "classic",
+      "price": 0,
+      "file": "bird/bird_sheet.png",
+      "frames": 4,
+      "fw": 42,
+      "fh": 34,
+      "fps": 12,
+      "ax": 21.0,
+      "ay": 17.0
+    },
+    {
+      "id": "blue",
+      "price": 100,
+      "file": "skins/blue_sheet.png",
+      "frames": 12,
+      "fw": 68,
+      "fh": 65,
+      "fps": 24,
+      "ax": 46.2,
+      "ay": 45.0
+    }
+  ],
+  "coin": {
+    "file": "coin/coin_sheet.png",
+    "frames": 8,
+    "fw": 32,
+    "fh": 32,
+    "fps": 10
+  }
+}
