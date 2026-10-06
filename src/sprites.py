@@ -287,6 +287,7 @@ class BirdArt:
         self.anim = Animation(_load(base_dir, spec["file"]), spec["frames"], spec["fps"])
         self.w, self.h = spec["fw"], spec["fh"]
         self.ax, self.ay = spec.get("ax", self.w / 2), spec.get("ay", self.h / 2)
+        self.art_px = spec.get("art_px")   # -- піксель-арт: розмір художнього пікселя (None -- звичайна картинка)
 
     def update(self, dt, flap_speed=1.0):
         self.anim.update(dt * flap_speed)
@@ -299,6 +300,101 @@ class BirdArt:
             img = pygame.transform.rotate(img, angle)
             off = off.rotate(-angle)
         surf.blit(img, img.get_rect(center=(int(cx - off.x), int(cy - off.y))))
+
+
+# -- шлейфи в порядку магазину: (id, ціна). "none" -- без шлейфу, є в усіх
+TRAILS = [("none", 0), ("neon", 150), ("rainbow", 250)]
+RAINBOW = [(255, 72, 72), (255, 160, 48), (255, 228, 64), (96, 216, 88), (72, 160, 255), (164, 100, 240)]
+
+
+def _lerp(c0, c1, k):
+    return tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
+
+
+class Trail:
+    """
+    Шлейф за пташкою: напівпрозора смуга по точках, де пташка вже пролетіла.
+    pts -- [(x, y, k, seed)] від голови (k=0, біля пташки) до хвоста (k=1, майже зник);
+    seed 0..1 -- випадкове число точки (для іскорок).
+    Смуга малюється на окреме прозоре полотно розміром зі шлейф, а потім кладеться на екран.
+    """
+
+    RAINBOW_BAND = 3                         # -- px, товщина однієї смуги веселки
+    NEON_GLOW, NEON_CORE = 22, 8             # -- px, ширина світіння і яскравої серединки
+    NEON_FROM, NEON_TO = (255, 50, 190), (120, 50, 255)   # -- від рожевого біля пташки до фіолетового
+
+    def __init__(self, trail_id, price):
+        self.id = trail_id
+        self.price = price
+
+    def draw(self, surf, pts, t):
+        if self.id == "none" or len(pts) < 2:
+            return
+        m = 20
+        x0 = int(min(p[0] for p in pts)) - m
+        y0 = int(min(p[1] for p in pts)) - m
+        w = int(max(p[0] for p in pts)) + m - x0
+        h = int(max(p[1] for p in pts)) + m - y0
+        layer = pygame.Surface((w, h), pygame.SRCALPHA)
+        pts = [(x - x0, y - y0, k, seed) for x, y, k, seed in pts]
+        if self.id == "rainbow":
+            self._rainbow(layer, pts)
+        else:
+            self._neon(layer, pts, t)
+        surf.blit(layer, (x0, y0))
+
+    @staticmethod
+    def _normals(pts):
+        """для кожної точки -- одиничний вектор поперек шлейфу (щоб товщина не залежала від нахилу)"""
+        out = []
+        for i in range(len(pts)):
+            a, b = pts[max(0, i - 1)], pts[min(len(pts) - 1, i + 1)]
+            dx, dy = a[0] - b[0], a[1] - b[1]
+            n = math.hypot(dx, dy) or 1.0
+            out.append((-dy / n, dx / n))
+        return out
+
+    @staticmethod
+    def _band(layer, a, b, na, nb, oa, ob, color):
+        """чотирикутник між сусідніми точками a і b: oa/ob -- (від, до) зсуву поперек шлейфу"""
+        pygame.draw.polygon(layer, color, [
+            (round(a[0] + na[0] * oa[0]), round(a[1] + na[1] * oa[0])),
+            (round(b[0] + nb[0] * ob[0]), round(b[1] + nb[1] * ob[0])),
+            (round(b[0] + nb[0] * ob[1]), round(b[1] + nb[1] * ob[1])),
+            (round(a[0] + na[0] * oa[1]), round(a[1] + na[1] * oa[1]))])
+
+    def _rainbow(self, layer, pts):
+        n = len(RAINBOW)
+        normals = self._normals(pts)
+        for i, (a, b) in enumerate(zip(pts, pts[1:])):
+            ha = self.RAINBOW_BAND * (1 - 0.35 * a[2])        # -- до хвоста трохи тоншає
+            hb = self.RAINBOW_BAND * (1 - 0.35 * b[2])
+            alpha = int(210 * (1 - a[2]) ** 0.7)
+            for j, color in enumerate(RAINBOW):
+                o = j - n / 2
+                self._band(layer, a, b, normals[i], normals[i + 1], (o * ha, (o + 1) * ha),
+                           (o * hb, (o + 1) * hb), (*color, alpha))
+
+    def _neon(self, layer, pts, t):
+        normals = self._normals(pts)
+        for width, alpha, light in ((self.NEON_GLOW, 150, 0.0), (self.NEON_CORE, 255, 0.5)):
+            for i, (a, b) in enumerate(zip(pts, pts[1:])):
+                color = _lerp(self.NEON_FROM, self.NEON_TO, a[2])
+                color = _lerp(color, (255, 255, 255), light)
+                wa = width * (1 - 0.6 * a[2]) / 2
+                wb = width * (1 - 0.6 * b[2]) / 2
+                self._band(layer, a, b, normals[i], normals[i + 1], (-wa, wa), (-wb, wb),
+                           (*color, int(alpha * (1 - a[2]) ** 0.7)))
+        # -- іскорки: маленькі хрестики, що мерехтять поруч зі смугою
+        for (x, y, k, seed), (nx, ny) in zip(pts, normals):
+            if seed > 0.14 or k < 0.12:
+                continue
+            r = 2 if math.sin(t * 18 + seed * 90) > 0 else 1
+            c = (255, 255, 255, int(255 * (1 - k)))
+            off = (seed - 0.07) * 160
+            x, y = int(x + nx * off), int(y + ny * off)
+            layer.fill(c, (x - r, y, 2 * r + 1, 1))
+            layer.fill(c, (x, y - r, 1, 2 * r + 1))
 
 
 class NineSlice:
@@ -413,6 +509,19 @@ class SpriteKit:
         self.coin = Animation(_load(base_dir, c["file"]), c["frames"], c["fps"])
         self.coin_icon = self.coin.frames[0]
 
+        # -- бонуси (іконки в бульбашках) і бульбашка щита навколо пташки
+        def anim(spec):
+            return Animation(_load(base_dir, spec["file"]), spec["frames"], spec["fps"], spec["pause"])
+
+        pu = ex["powerups"]
+        self.powerups = {kind: anim(pu[kind]) for kind in ("shield", "slow", "x2")}
+        self.aura = anim(pu["aura"])
+
+        # -- шлейфи за пташкою (малюються кодом, без картинок); self.trail -- обраний
+        self.trails = [Trail(tid, price) for tid, price in TRAILS]
+        self.trail_by_id = {tr.id: tr for tr in self.trails}
+        self.trail = self.trails[0]
+
         self.lang = "en"
 
     def set_lang(self, lang):
@@ -427,6 +536,10 @@ class SpriteKit:
     def set_skin(self, skin_id):
         self.bird = self.skin_by_id.get(skin_id, self.skins[0])
         return self.bird.id
+
+    def set_trail(self, trail_id):
+        self.trail = self.trail_by_id.get(trail_id, self.trails[0])
+        return self.trail.id
 
     def text(self, key):
         return self.texts[self.lang][key]

@@ -44,6 +44,24 @@ COIN_HITBOX = 24
 COIN_PICKUP_TIME = 0.35     # -- сек, анімація підбору
 COIN_FPS = 10
 
+# -- бонуси: щит рятує від одного удару, сповільнення на кілька секунд пригальмовує світ,
+# -- x2 -- кожна монетка рахується за дві
+POWERUP_CHANCE = 0.18       # -- шанс бонусу між двома трубами (тоді монетки там нема)
+POWERUP_HITBOX = 30
+POWERUP_BOB = 4             # -- px, наскільки бонус гойдається вгору-вниз
+BOOST_TIME = {"slow": 5.0, "x2": 10.0}   # -- сек, скільки діють бонуси з таймером
+BOOST_COLORS = {"slow": ((176, 112, 255), (220, 190, 255)),    # -- смужка часу: колір і блік
+                "x2": ((255, 196, 50), (255, 236, 150))}
+SLOW_FACTOR = 0.55          # -- швидкість труб і фону під час сповільнення (1.0 = звичайна)
+SLOW_TINT = (70, 30, 150)   # -- екран трохи фіолетовіє, поки діє сповільнення
+SLOW_TINT_ALPHA = 45
+SHIELD_GRACE = 1.0          # -- сек невразливості після того, як щит лопнув (пташка блимає)
+SHIELD_POP_TIME = 0.35      # -- сек, анімація лопання щита
+POWERUP_HUD_Y = 72          # -- де під лічильником монет показуються активні бонуси
+POWERUP_HUD_STEP = 44       # -- відстань між рядками бонусів з таймером
+
+TRAIL_LIFE = 0.6            # -- сек, скільки живе точка шлейфу (довжина шлейфу)
+
 MENU_SCROLL_SPEED = 60     # -- px/сек, як швидко їде земля в меню (місто і кущі повільніше)
 GAME_OVER_ANIM = 0.45      # -- сек, за скільки виїжджає напис GAME OVER і кнопка MENU
 
@@ -73,15 +91,20 @@ MENU_BTN_RECT.midtop = (WIDTH // 2, RESULT_PANEL.bottom + 34)
 RECORDS_TITLE_Y = 70
 RECORDS_PANEL = pygame.Rect(40, 112, 320, 326)
 
-# -- магазин: вікно з картками пташок, по 3 в ряд; якщо рядів більше -- гортається коліщатком
-SHOP_TITLE_Y = 84
-SHOP_PANEL = pygame.Rect(14, 116, 372, 350)
-SHOP_COLS = 3
-CARD_W, CARD_H, CARD_GAP = 108, 150, 10
-CARD_PAD_TOP = 16
+# -- магазин: вкладки ПТАШКИ | ШЛЕЙФИ, під ними вікно з картками по 2 в ряд (4 картки -- рівно 2x2);
+# -- якщо рядів більше -- гортається коліщатком
+SHOP_TITLE_Y = 80
+SHOP_TABS = {"birds": pygame.Rect(14, 106, 182, 46),     # -- висота панелі не менша за 2 рамки (2 * 22)
+             "trails": pygame.Rect(204, 106, 182, 46)}
+SHOP_PANEL = pygame.Rect(14, 156, 372, 328)
+SHOP_COLS = 2
+CARD_W, CARD_H, CARD_GAP = 164, 137, 10
+CARD_PAD_TOP = 10
 SHOP_SCROLL_STEP = 40
 NOT_ENOUGH_TIME = 1.6      # -- сек, скільки висить «недостатньо монет»
-CARD_PREVIEW = (88, 80)    # -- у яку рамку вписується пташка на картці
+CARD_PREVIEW = (124, 86)   # -- у яку рамку вписується пташка на картці
+TRAIL_PREVIEW = (70, 60)   # -- пташка на картці шлейфу менша -- позаду неї ще шлейф
+TAB_DIM = 0.78             # -- неактивна вкладка темніша
 
 # -- екран налаштувань: панель з 5 рядками (підпис + перемикач або повзунок)
 SETTINGS_TITLE_Y = 56
@@ -106,7 +129,7 @@ BACK_BTN_RECT.midtop = (WIDTH // 2, SETTINGS_PANEL.bottom + 6)
 RECORDS_BACK_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
 RECORDS_BACK_RECT.midtop = (WIDTH // 2, RECORDS_PANEL.bottom + 14)
 SHOP_BACK_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
-SHOP_BACK_RECT.midtop = (WIDTH // 2, SHOP_PANEL.bottom + 30)
+SHOP_BACK_RECT.midtop = (WIDTH // 2, SHOP_PANEL.bottom + 24)
 
 # -- лічильник монет у меню
 COINS_CHIP = pygame.Rect(10, 12, 128, 46)
@@ -158,6 +181,11 @@ if "classic" not in progress["owned"]:
 if progress["skin"] not in progress["owned"]:
     progress["skin"] = "classic"
 progress["skin"] = kit.set_skin(progress["skin"])
+if "none" not in progress["owned_trails"]:
+    progress["owned_trails"].insert(0, "none")
+if progress["trail"] not in progress["owned_trails"]:
+    progress["trail"] = "none"
+progress["trail"] = kit.set_trail(progress["trail"])
 GROUND_Y = kit.ground_y   # -- з цієї висоти починається земля, пташка про неї розбивається
 
 music = Music({"menu": os.path.join(MUSIC_DIR, "menu.mp3"),
@@ -166,7 +194,8 @@ music = Music({"menu": os.path.join(MUSIC_DIR, "menu.mp3"),
 music.set_level("menu", config["menu_music"])
 music.set_level("game", config["game_music"])
 
-sfx = Sounds({"coin": os.path.join(SOUNDS_DIR, "coin.wav")}, max_volume=SFX_MAX_VOLUME)
+sfx = Sounds({name: os.path.join(SOUNDS_DIR, name + ".wav") for name in ("coin", "powerup", "shield_break")},
+             max_volume=SFX_MAX_VOLUME)
 sfx.set_level(config["sfx"])
 
 # -- який спрайт малює яку кнопку меню
@@ -189,9 +218,16 @@ bird_y = BIRD_START_Y
 bird_v = 0
 
 pipes = []
-coins = []          # -- [x центру, y центру, фаза анімації, час після підбору або None]
+coins = []          # -- [x центру, y центру, фаза анімації, час після підбору або None, скільки дала монет]
 score = 0
 run_coins = 0       # -- монетки, зібрані за цю гру
+powerups = []       # -- бонуси на полі: [x центру, y центру, "shield"/"slow", фаза, час після підбору або None]
+shield = False      # -- чи є щит
+grace = 0.0         # -- скільки ще секунд невразливості після удару щитом
+boost = {kind: 0.0 for kind in BOOST_TIME}   # -- скільки ще секунд діє сповільнення / x2
+trail_pts = []      # -- точки шлейфу: [x, y, вік, випадкове 0..1]
+speed_k = 1.0       # -- поточний множник швидкості світу (плавно йде до SLOW_FACTOR і назад)
+pops = []           # -- лопнуті щити: [x, y, час після удару]
 new_record = False
 run_saved = True    # -- чи вже записали результат цієї гри
 
@@ -201,6 +237,7 @@ over = False
 in_settings = False
 in_records = False
 in_shop = False
+shop_tab = "birds"  # -- вкладка магазину: "birds" або "trails"
 shop_scroll = 0
 not_enough = 0.0    # -- таймер напису «недостатньо монет»
 dragging = None     # -- який повзунок тягнуть мишкою
@@ -224,12 +261,32 @@ def add_pipe(x):
 
     if random.random() < COIN_CHANCE_GAP:
         cy = gap_y + PIPE_GAP // 2 + random.randint(-COIN_GAP_JITTER, COIN_GAP_JITTER)
-        coins.append([x + PIPE_WIDTH / 2, cy, random.random() * 8, None])
+        coins.append([x + PIPE_WIDTH / 2, cy, random.random() * 8, None, 1])
 
-    if prev and random.random() < COIN_CHANCE_BETWEEN:
-        mid_x = (prev[0] + x) / 2 + PIPE_WIDTH / 2
-        mid_y = (prev[1] + gap_y) / 2 + PIPE_GAP // 2 + random.randint(-30, 30)
-        coins.append([mid_x, mid_y, random.random() * 8, None])
+    if not prev:
+        return
+    mid_x = (prev[0] + x) / 2 + PIPE_WIDTH / 2
+    mid_y = (prev[1] + gap_y) / 2 + PIPE_GAP // 2 + random.randint(-30, 30)
+    kinds = free_powerups()
+    if kinds and random.random() < POWERUP_CHANCE:
+        powerups.append([mid_x, mid_y, random.choice(kinds), random.random() * 6, None])
+    elif random.random() < COIN_CHANCE_BETWEEN:
+        coins.append([mid_x, mid_y, random.random() * 8, None, 1])
+
+
+def free_powerups():
+    """які бонуси можна поставити: не той, що вже діє, і не той, що вже чекає на полі"""
+    waiting = {p[2] for p in powerups if p[4] is None}
+    kinds = []
+    if not shield and "shield" not in waiting:
+        kinds.append("shield")
+    kinds += [kind for kind, left in boost.items() if left <= 0 and kind not in waiting]
+    return kinds
+
+
+def powerup_y(p):
+    """бонус гойдається вгору-вниз (і хітбокс разом з ним)"""
+    return p[1] + math.sin(t_total * 3 + p[3]) * POWERUP_BOB
 
 
 def fill_pipes():
@@ -243,6 +300,7 @@ def new_pipes():
     """генерація труб"""
     pipes.clear()
     coins.clear()
+    powerups.clear()
     fill_pipes()
 
 
@@ -262,13 +320,108 @@ def blit_center(img, x, y):
 def draw_bird(x, y, v):
     """спрайт пташки по центру хітбокса, нахил залежить від швидкості"""
     angle = max(BIRD_MAX_DOWN, min(BIRD_MAX_UP, -v * 4))
-    kit.bird.draw(screen, x + BIRD_SIZE / 2, y + BIRD_SIZE / 2, angle)
+    cx, cy = x + BIRD_SIZE / 2, y + BIRD_SIZE / 2
+    # -- після удару щитом пташка блимає, поки невразлива
+    if not (grace > 0 and not over and int(grace * 12) % 2):
+        kit.bird.draw(screen, cx, cy, angle)
+    if shield:
+        blit_center(kit.aura.frame(), cx, cy)
+    # -- лопнутий щит: бульбашка роздувається і зникає
+    for px, py, t in pops:
+        k = t / SHIELD_POP_TIME
+        img = kit.aura.frames[0]
+        img = pygame.transform.scale(img, (int(img.get_width() * (1 + 0.6 * k)),
+                                           int(img.get_height() * (1 + 0.6 * k))))
+        img.set_alpha(int(255 * (1 - k)))
+        blit_center(img, px, py)
+
+
+def draw_powerups():
+    """бонуси на полі (на всьому полотні, як монетки); підібраний -- летить вгору і зникає"""
+    for p in powerups:
+        x, taken = p[0] + VIEW_X, p[4]
+        img = kit.powerups[p[2]].frame()
+        if taken is None:
+            view.blit(img, img.get_rect(center=(int(x), int(powerup_y(p)))))
+        else:
+            k = taken / COIN_PICKUP_TIME
+            img = pygame.transform.scale(img, (int(img.get_width() * (1 + 0.5 * k)),
+                                               int(img.get_height() * (1 + 0.5 * k))))
+            img.set_alpha(int(255 * (1 - k)))
+            view.blit(img, img.get_rect(center=(int(x), int(p[1] - 34 * k))))
+
+
+def draw_powerup_hud():
+    """активні бонуси під лічильником монет, кожен у своєму рядку: щит -- іконка,
+    сповільнення і x2 -- іконка і смужка часу (за 1.5 сек до кінця смужка блимає)"""
+    x, y = 10, POWERUP_HUD_Y
+    if shield:
+        img = kit.powerups["shield"].frames[0]
+        screen.blit(img, (x, y - img.get_height() // 2))
+        y += POWERUP_HUD_STEP
+    for kind, left in boost.items():
+        if left <= 0:
+            continue
+        img = kit.powerups[kind].frame()
+        screen.blit(img, (x, y - img.get_height() // 2))
+        if not (left < 1.5 and int(left * 8) % 2):
+            draw_timer_bar(pygame.Rect(x + img.get_width() + 6, y - 5, 60, 10), left / BOOST_TIME[kind],
+                           *BOOST_COLORS[kind])
+        y += POWERUP_HUD_STEP
+
+
+def draw_timer_bar(bar, value, color, shine):
+    fill_w = int(bar.width * value)
+    pygame.draw.rect(screen, COLOR_OUTLINE, bar.inflate(6, 6), border_radius=6)
+    pygame.draw.rect(screen, COLOR_SLIDER_BACK, bar, border_radius=4)
+    if fill_w > 0:
+        pygame.draw.rect(screen, color, (bar.x, bar.y, fill_w, bar.height), border_radius=4)
+        pygame.draw.rect(screen, shine, (bar.x + 2, bar.y + 2, max(0, fill_w - 4), 2))
+
+
+_tint = None
+
+
+def draw_slow_tint():
+    """поки діє сповільнення, все трохи фіолетовіє (плавно з'являється і зникає разом зі швидкістю)"""
+    global _tint
+    k = (1 - speed_k) / (1 - SLOW_FACTOR)
+    if k < 0.02:
+        return
+    if _tint is None or _tint.get_size() != view.get_size():
+        _tint = pygame.Surface(view.get_size())
+        _tint.fill(SLOW_TINT)
+    _tint.set_alpha(int(SLOW_TINT_ALPHA * min(1.0, k)))
+    view.blit(_tint, (0, 0))
+
+
+def take_powerup(kind):
+    global shield
+    if kind == "shield":
+        shield = True
+    else:
+        boost[kind] = BOOST_TIME[kind]
+    sfx.play("powerup")
+
+
+def hit():
+    """удар об трубу / землю / стелю: щит лопає і дає секунду невразливості, без щита -- кінець гри"""
+    global over, shield, grace
+    if grace > 0:
+        return
+    if shield:
+        shield = False
+        grace = SHIELD_GRACE
+        pops.append([BIRD_START_X + BIRD_SIZE / 2, bird_y + BIRD_SIZE / 2, 0.0])
+        sfx.play("shield_break")
+    else:
+        over = True
 
 
 def draw_coins():
     """монетки малюються на всьому полотні (як і труби)"""
     frames = kit.coin.frames
-    for x, y, phase, taken in coins:
+    for x, y, phase, taken, value in coins:
         img = frames[int(t_total * COIN_FPS + phase) % len(frames)]
         x += VIEW_X
         if taken is None:
@@ -280,6 +433,23 @@ def draw_coins():
             img = pygame.transform.scale(img, (int(img.get_width() * s), int(img.get_height() * s)))
             img.set_alpha(int(255 * (1 - k)))
             view.blit(img, img.get_rect(center=(int(x), int(y - 34 * k))))
+            if value > 1:               # -- з x2 над монеткою вилітає «+2»
+                plus = number_image(f"+{value}")
+                plus.set_alpha(int(255 * (1 - k * k)))
+                view.blit(plus, plus.get_rect(center=(int(x), int(y - 22 - 40 * k))))
+
+
+_number_cache = {}
+
+
+def number_image(text, style="light"):
+    """число зі спрайтів-цифр як окрема картинка (щоб можна було зробити напівпрозорим)"""
+    if (text, style) not in _number_cache:
+        h = max(img.get_height() for img in kit.digits[style].values())
+        img = pygame.Surface((kit.number_width(text, style), h), pygame.SRCALPHA)
+        kit.draw_number(img, text, 0, h // 2, style=style, align="left")
+        _number_cache[(text, style)] = img
+    return _number_cache[(text, style)].copy()
 
 
 def counter_width(icon, value):
@@ -487,14 +657,20 @@ def draw_records():
     draw_row(panel, y_coins, "coins", progress["coins"], icon=kit.coin_icon)
 
 
-# -- магазин
+# -- магазин: на кожній вкладці -- що продається, де в збереженні обране і куплене
+SHOP = {
+    "birds": {"items": kit.skins, "pick": "skin", "owned": "owned", "set": kit.set_skin},
+    "trails": {"items": kit.trails, "pick": "trail", "owned": "owned_trails", "set": kit.set_trail},
+}
+
+
 def shop_cards():
-    """(скін, прямокутник картки) з урахуванням прокрутки"""
+    """(товар, прямокутник картки) поточної вкладки з урахуванням прокрутки"""
     x0 = SHOP_PANEL.x + (SHOP_PANEL.width - SHOP_COLS * CARD_W - (SHOP_COLS - 1) * CARD_GAP) // 2
     y0 = SHOP_PANEL.y + CARD_PAD_TOP - shop_scroll
-    for i, bird in enumerate(kit.skins):
+    for i, item in enumerate(SHOP[shop_tab]["items"]):
         row, col = divmod(i, SHOP_COLS)
-        yield bird, pygame.Rect(x0 + col * (CARD_W + CARD_GAP), y0 + row * (CARD_H + CARD_GAP), CARD_W, CARD_H)
+        yield item, pygame.Rect(x0 + col * (CARD_W + CARD_GAP), y0 + row * (CARD_H + CARD_GAP), CARD_W, CARD_H)
 
 
 def shop_view():
@@ -504,28 +680,34 @@ def shop_view():
 
 
 def shop_max_scroll():
-    rows = (len(kit.skins) + SHOP_COLS - 1) // SHOP_COLS
+    rows = (len(SHOP[shop_tab]["items"]) + SHOP_COLS - 1) // SHOP_COLS
     content = CARD_PAD_TOP * 2 + rows * CARD_H + (rows - 1) * CARD_GAP
     return max(0, content - shop_view().height)
 
 
 def shop_click(x, y):
-    """клік по картці: купити (якщо вистачає монет) або обрати"""
-    global not_enough
+    """клік по вкладці -- перемикаємо; по картці -- купити (якщо вистачає монет) або обрати"""
+    global not_enough, shop_tab, shop_scroll
 
+    for name, rect in SHOP_TABS.items():
+        if rect.collidepoint(x, y):
+            shop_tab, shop_scroll, not_enough = name, 0, 0.0
+            return
     if not shop_view().collidepoint(x, y):
         return
-    for bird, rect in shop_cards():
+    tab = SHOP[shop_tab]
+    owned = progress[tab["owned"]]
+    for item, rect in shop_cards():
         if not rect.collidepoint(x, y):
             continue
-        if bird.id not in progress["owned"]:
-            if progress["coins"] < bird.price:
+        if item.id not in owned:
+            if progress["coins"] < item.price:
                 not_enough = NOT_ENOUGH_TIME
                 return
-            progress["coins"] -= bird.price
-            progress["owned"].append(bird.id)
+            progress["coins"] -= item.price
+            owned.append(item.id)
             sfx.play("coin")
-        progress["skin"] = kit.set_skin(bird.id)
+        progress[tab["pick"]] = tab["set"](item.id)
         settings.save(SAVE_PATH, progress)
         return
 
@@ -533,22 +715,50 @@ def shop_click(x, y):
 _preview_cache = {}
 
 
-def card_preview(bird, i):
-    """кадр пташки, збільшений під картку (маленька класична -- рівно в 2 рази, без розмиття)"""
-    key = (bird.id, i)
+def card_preview(bird, i, frame_box=CARD_PREVIEW):
+    """
+    кадр пташки, збільшений під рамку frame_box. Порожні краї кадрів (запас під крила) обрізаємо --
+    одна рамка на всі кадри, щоб пташка не смикалась. Піксель-арт збільшуємо так, щоб кожен
+    художній піксель став цілим числом пікселів -- тоді картинка не розмивається.
+    """
+    key = (bird.id, i, frame_box)
     if key not in _preview_cache:
-        img = bird.anim.frames[i]
-        k = min(CARD_PREVIEW[0] / img.get_width(), CARD_PREVIEW[1] / img.get_height())
-        if k >= 2:
+        box = bird.anim.frames[0].get_bounding_rect().unionall(
+            [f.get_bounding_rect() for f in bird.anim.frames])
+        img = bird.anim.frames[i].subsurface(box)
+        k = min(frame_box[0] / img.get_width(), frame_box[1] / img.get_height())
+        if bird.art_px and k >= 1:
+            k = max(1, math.floor(k * bird.art_px)) / bird.art_px
+        elif k >= 2:
             k = int(k)
         size = (round(img.get_width() * k), round(img.get_height() * k))
-        _preview_cache[key] = pygame.transform.scale(img, size) if k == int(k) else             pygame.transform.smoothscale(img, size)
+        crisp = bird.art_px or k == int(k)
+        _preview_cache[key] = (pygame.transform.scale if crisp else pygame.transform.smoothscale)(img, size)
     return _preview_cache[key]
 
 
-def draw_card(bird, rect, mouse_pos):
-    selected = bird.id == progress["skin"]
-    owned = bird.id in progress["owned"]
+def draw_trail_preview(trail, rect):
+    """картка шлейфу: обрана пташка гойдається, а за нею тягнеться шлейф (там, де вона щойно була)"""
+    bird = kit.bird
+    img = card_preview(bird, int(t_total * bird.anim.fps) % len(bird.anim.frames), TRAIL_PREVIEW)
+    bx = rect.right - 14 - img.get_width() // 2
+
+    def wave_y(t):
+        return rect.y + 50 + math.sin(t * 3) * 8
+
+    n, length = 24, bx - rect.x - 2
+    pts = [(bx - 6 - length * j / n, wave_y(t_total - 0.8 * j / n), j / n, (j * 0.618) % 1)
+           for j in range(n + 1)]
+    screen.set_clip(rect.inflate(-6, -6).clip(shop_view()))
+    trail.draw(screen, pts, t_total)
+    screen.set_clip(shop_view())
+    blit_center(img, bx, wave_y(t_total))
+
+
+def draw_card(item, rect, mouse_pos):
+    tab = SHOP[shop_tab]
+    selected = item.id == progress[tab["pick"]]
+    owned = item.id in progress[tab["owned"]]
 
     screen.blit(kit.panel.render(rect.width, rect.height), rect)
     if selected:
@@ -556,9 +766,12 @@ def draw_card(bird, rect, mouse_pos):
     elif rect.collidepoint(mouse_pos) and shop_view().collidepoint(mouse_pos):
         pygame.draw.rect(screen, COLOR_CARD_HOVER, rect.inflate(-4, -6).move(0, -2), 2, border_radius=8)
 
-    # -- пташка махає крилами (кожна зі своєю швидкістю кадрів)
-    i = int(t_total * bird.anim.fps) % len(bird.anim.frames)
-    blit_center(card_preview(bird, i), rect.centerx, rect.y + 58)
+    if shop_tab == "birds":
+        # -- пташка махає крилами (кожна зі своєю швидкістю кадрів)
+        i = int(t_total * item.anim.fps) % len(item.anim.frames)
+        blit_center(card_preview(item, i), rect.centerx, rect.y + 50)
+    else:
+        draw_trail_preview(item, rect)
 
     y = rect.bottom - 34
     if selected:
@@ -566,21 +779,40 @@ def draw_card(bird, rect, mouse_pos):
     elif owned:
         blit_center(kit.text("select"), rect.centerx, y)
     else:
-        price = str(bird.price)
+        price = str(item.price)
         w = counter_width(kit.coin_icon, price)
         draw_counter(kit.coin_icon, price, rect.centerx - w // 2, y)
 
 
+def draw_tabs(mouse_pos):
+    """вкладки ПТАШКИ | ШЛЕЙФИ: активна -- з зеленою рамкою, інша -- трохи темніша"""
+    for name, rect in SHOP_TABS.items():
+        img = kit.panel.render(rect.width, rect.height)
+        active = name == shop_tab
+        if not active:
+            img = img.copy()
+            m = int(255 * TAB_DIM)
+            img.fill((m, m, m), special_flags=pygame.BLEND_RGB_MULT)
+        screen.blit(img, rect)
+        frame = rect.inflate(-4, -6).move(0, -2)
+        if active:
+            pygame.draw.rect(screen, COLOR_ARROW, frame, 3, border_radius=8)
+        elif rect.collidepoint(mouse_pos):
+            pygame.draw.rect(screen, COLOR_CARD_HOVER, frame, 2, border_radius=8)
+        blit_center(kit.text("tab_" + name), rect.centerx, rect.centery - 3)
+
+
 def draw_shop(mouse_pos):
     blit_center(kit.text("shop_title"), WIDTH // 2, SHOP_TITLE_Y)
+    draw_tabs(mouse_pos)
     screen.blit(kit.panel.render(SHOP_PANEL.width, SHOP_PANEL.height), SHOP_PANEL)
 
     screen.set_clip(shop_view())
-    for bird, rect in shop_cards():
-        draw_card(bird, rect, mouse_pos)
+    for item, rect in shop_cards():
+        draw_card(item, rect, mouse_pos)
     screen.set_clip(None)
 
-    # -- смужка прокрутки, якщо пташок більше, ніж влазить
+    # -- смужка прокрутки, якщо карток більше, ніж влазить
     top = shop_max_scroll()
     if top > 0:
         view_rect = shop_view()
@@ -589,11 +821,12 @@ def draw_shop(mouse_pos):
         pygame.draw.rect(screen, COLOR_KNOB_SHADE, (SHOP_PANEL.right - 12, y, 5, h), border_radius=3)
 
     if not_enough > 0 and int((NOT_ENOUGH_TIME - not_enough) * 6) % 2 == 0:
-        blit_center(kit.text("not_enough"), WIDTH // 2, SHOP_PANEL.bottom + 14)
+        blit_center(kit.text("not_enough"), WIDTH // 2, SHOP_PANEL.bottom + 10)
 
 
 def reset_game():
     global bird_y, bird_v, score, over, start, run_coins, new_record, run_saved
+    global shield, grace, speed_k
 
     bird_y = BIRD_START_Y
     bird_v = 0
@@ -603,6 +836,13 @@ def reset_game():
     run_saved = False
     over = False
     start = True
+    shield = False
+    grace = 0.0
+    for kind in boost:
+        boost[kind] = 0.0
+    speed_k = 1.0
+    pops.clear()
+    trail_pts.clear()
 
     new_pipes()
     scenery.update(0, PIPE_SPEED * FPS, snap=True)   # -- фон їде з тією ж швидкістю, що й труби
@@ -734,14 +974,23 @@ while run:
             fading = False
             reset_game()
 
+    # -- сповільнення: швидкість світу плавно йде до потрібної (гравітація і стрибок не змінюються)
+    slowed = start and not over and boost["slow"] > 0
+    speed_k += ((SLOW_FACTOR if slowed else 1.0) - speed_k) * min(1.0, 5.0 * dts)
+    speed = PIPE_SPEED * speed_k
+
     # -- фізика
     if start and not over:
+        for kind in boost:
+            boost[kind] = max(0.0, boost[kind] - dts)
+        grace = max(0.0, grace - dts)
+
         bird_v += GRAVITY
         bird_y += bird_v
         bird_rect = pygame.Rect(BIRD_START_X, int(bird_y), BIRD_SIZE, BIRD_SIZE)
 
         for pipe in pipes:
-            pipe[0] -= PIPE_SPEED
+            pipe[0] -= speed
 
             if not pipe[2] and pipe[0] + PIPE_WIDTH < BIRD_START_X:
                 pipe[2] = True
@@ -749,7 +998,7 @@ while run:
 
             if BIRD_START_X + BIRD_SIZE > pipe[0] and BIRD_START_X < pipe[0] + PIPE_WIDTH:
                 if bird_y < pipe[1] or bird_y + BIRD_SIZE > pipe[1] + PIPE_GAP:
-                    over = True
+                    hit()
 
         # -- труба зникає, коли повністю виїхала за лівий край полотна
         pipes[:] = [p for p in pipes if p[0] > -PIPE_WIDTH - VIEW_X]
@@ -757,25 +1006,64 @@ while run:
 
         # -- монетки їдуть разом з трубами; зачепив -- підібрав
         for coin in coins:
-            coin[0] -= PIPE_SPEED
+            coin[0] -= speed
             if coin[3] is None:
-                hit = pygame.Rect(0, 0, COIN_HITBOX, COIN_HITBOX)
-                hit.center = (int(coin[0]), int(coin[1]))
-                if not over and hit.colliderect(bird_rect):
+                box = pygame.Rect(0, 0, COIN_HITBOX, COIN_HITBOX)
+                box.center = (int(coin[0]), int(coin[1]))
+                if not over and box.colliderect(bird_rect):
                     coin[3] = 0.0
-                    run_coins += 1
-                    progress["coins"] += 1
+                    coin[4] = 2 if boost["x2"] > 0 else 1
+                    run_coins += coin[4]
+                    progress["coins"] += coin[4]
                     sfx.play("coin")
 
-        if bird_y < 0 or bird_y + BIRD_SIZE > GROUND_Y:
-            over = True
+        # -- бонуси теж їдуть з трубами; підібраний одразу діє
+        for p in powerups:
+            p[0] -= speed
+            if p[4] is None:
+                box = pygame.Rect(0, 0, POWERUP_HITBOX, POWERUP_HITBOX)
+                box.center = (int(p[0]), int(powerup_y(p)))
+                if not over and box.colliderect(bird_rect):
+                    p[4] = 0.0
+                    p[1] = powerup_y(p)
+                    take_powerup(p[2])
 
-    # -- анімація підбору монеток йде і після смерті
-    for coin in coins:
-        if coin[3] is not None:
-            coin[3] += dts
+        # -- земля і стеля: зі щитом пташка відскакує, без щита -- кінець гри
+        if bird_y + BIRD_SIZE > GROUND_Y:
+            hit()
+            if not over:
+                bird_y = GROUND_Y - BIRD_SIZE
+                bird_v = JUMP_VELOCITY
+        elif bird_y < 0:
+            hit()
+            if not over:
+                bird_y = 0
+                bird_v = max(bird_v, 0)
+
+    # -- анімація підбору монеток і бонусів йде і після смерті
+    for item in coins:
+        if item[3] is not None:
+            item[3] += dts
     coins[:] = [c for c in coins
                 if c[0] > -COIN_HITBOX - VIEW_X and (c[3] is None or c[3] < COIN_PICKUP_TIME)]
+    for p in powerups:
+        if p[4] is not None:
+            p[4] += dts
+    powerups[:] = [p for p in powerups
+                   if p[0] > -POWERUP_HITBOX - VIEW_X and (p[4] is None or p[4] < COIN_PICKUP_TIME)]
+    for pop in pops:
+        pop[2] += dts
+    pops[:] = [p for p in pops if p[2] < SHIELD_POP_TIME]
+
+    # -- шлейф: точки, де пролетіла пташка; їдуть разом зі світом і згасають.
+    # -- після смерті нові не додаються -- шлейф просто тане
+    for tp in trail_pts:
+        tp[2] += dts
+        if start and not over:
+            tp[0] -= speed
+    trail_pts[:] = [tp for tp in trail_pts if tp[2] < TRAIL_LIFE]
+    if start and not over and kit.trail.id != "none":
+        trail_pts.append([BIRD_START_X + BIRD_SIZE / 2 - 6, bird_y + BIRD_SIZE / 2, 0.0, random.random()])
 
     if over:
         finish_run()
@@ -783,6 +1071,10 @@ while run:
     # -- крила: під час гри махає швидше при стрибку, після смерті завмирає
     if start and not over:
         kit.bird.update(dts, 2.0 if bird_v < 0 else 1.0)
+    if start:
+        kit.aura.update(dts)
+        for a in kit.powerups.values():
+            a.update(dts)
 
     # -- музика: у меню своя, у грі своя; поки тягнуть повзунок гри -- грає музика гри
     music.play("game" if start or dragging == "game_music" else "menu")
@@ -796,7 +1088,7 @@ while run:
     if over:
         scenery.update(dts, 0, snap=True)
     else:
-        scenery.update(dts, PIPE_SPEED * FPS if start else MENU_SCROLL_SPEED)
+        scenery.update(dts, speed * FPS if start else MENU_SCROLL_SPEED)
 
     mouse_pos = display.mouse_pos()
 
@@ -838,11 +1130,16 @@ while run:
             kit.pipe.draw(view, int(pipe[0]) + VIEW_X, PIPE_WIDTH, pipe[1], PIPE_GAP, GROUND_Y)
 
         draw_coins()
+        draw_powerups()
         scenery.draw_ground(view)
+        draw_slow_tint()
 
+        kit.trail.draw(view, [(x + VIEW_X, y, age / TRAIL_LIFE, seed)
+                              for x, y, age, seed in reversed(trail_pts)], t_total)
         draw_bird(BIRD_START_X, bird_y, bird_v)
         draw_text(str(score), title_font, WIDTH // 2, 50)
         draw_counter(kit.coin_icon, run_coins, 14, 30)
+        draw_powerup_hud()
 
         if over:
             # -- напис, панель і кнопка виїжджають зверху (ease-out)

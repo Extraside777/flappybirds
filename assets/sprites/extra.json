@@ -121,7 +121,9 @@
       "shop_title": "text/en/shop_title.png",
       "select": "text/en/select.png",
       "selected": "text/en/selected.png",
-      "not_enough": "text/en/not_enough.png"
+      "not_enough": "text/en/not_enough.png",
+      "tab_birds": "text/en/tab_birds.png",
+      "tab_trails": "text/en/tab_trails.png"
     },
     "uk": {
       "game_over": "text/uk/game_over.png",
@@ -142,7 +144,9 @@
       "shop_title": "text/uk/shop_title.png",
       "select": "text/uk/select.png",
       "selected": "text/uk/selected.png",
-      "not_enough": "text/uk/not_enough.png"
+      "not_enough": "text/uk/not_enough.png",
+      "tab_birds": "text/uk/tab_birds.png",
+      "tab_trails": "text/uk/tab_trails.png"
     }
   },
   "lang_names": {
@@ -219,7 +223,8 @@
       "fh": 34,
       "fps": 12,
       "ax": 21.0,
-      "ay": 17.0
+      "ay": 17.0,
+      "art_px": 2
     },
     {
       "id": "blue",
@@ -231,6 +236,30 @@
       "fps": 24,
       "ax": 46.2,
       "ay": 45.0
+    },
+    {
+      "id": "ninja",
+      "price": 200,
+      "file": "skins/ninja_sheet.png",
+      "frames": 8,
+      "fw": 76,
+      "fh": 64,
+      "fps": 16,
+      "ax": 44,
+      "ay": 38,
+      "art_px": 2
+    },
+    {
+      "id": "phoenix",
+      "price": 300,
+      "file": "skins/phoenix_sheet.png",
+      "frames": 8,
+      "fw": 76,
+      "fh": 64,
+      "fps": 16,
+      "ax": 44,
+      "ay": 38,
+      "art_px": 2
     }
   ],
   "coin": {
@@ -239,5 +268,39 @@
     "fw": 32,
     "fh": 32,
     "fps": 10
+  },
+  "powerups": {
+    "shield": {
+      "file": "powerups/shield_sheet.png",
+      "frames": 10,
+      "fw": 40,
+      "fh": 40,
+      "fps": 20,
+      "pause": 0.9
+    },
+    "slow": {
+      "file": "powerups/slow_sheet.png",
+      "frames": 8,
+      "fw": 40,
+      "fh": 40,
+      "fps": 7,
+      "pause": 0.5
+    },
+    "x2": {
+      "file": "powerups/x2_sheet.png",
+      "frames": 10,
+      "fw": 40,
+      "fh": 40,
+      "fps": 20,
+      "pause": 0.7
+    },
+    "aura": {
+      "file": "powerups/aura_sheet.png",
+      "frames": 12,
+      "fw": 70,
+      "fh": 70,
+      "fps": 12,
+      "pause": 0.0
+    }
   }
 }

@@ -18,6 +18,8 @@ PROGRESS_DEFAULTS = {
     "games": 0,
     "skin": "classic",          # -- якою пташкою граємо
     "owned": ["classic"],       # -- куплені пташки
+    "trail": "none",            # -- який шлейф тягнеться за пташкою
+    "owned_trails": ["none"],   # -- куплені шлейфи
 }
 
 
