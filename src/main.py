@@ -6,7 +6,7 @@ import pygame
 import settings
 from audio import Music, Sounds
 from display import Display, enable_dpi_awareness
-from sprites import SpriteKit
+from sprites import SpriteKit, TRAIL_PALETTE, TRAIL_STYLES
 
 # -- карочє тут путь к файлікам
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,11 +91,12 @@ MENU_BTN_RECT.midtop = (WIDTH // 2, RESULT_PANEL.bottom + 34)
 RECORDS_TITLE_Y = 70
 RECORDS_PANEL = pygame.Rect(40, 112, 320, 326)
 
-# -- магазин: вкладки ПТАШКИ | ШЛЕЙФИ, під ними вікно з картками по 2 в ряд (4 картки -- рівно 2x2);
+# -- магазин: вкладки ПТАШКИ | ШЛЕЙФИ | ФОНИ, під ними вікно з картками по 2 в ряд (4 картки -- рівно 2x2);
 # -- якщо рядів більше -- гортається коліщатком
 SHOP_TITLE_Y = 80
-SHOP_TABS = {"birds": pygame.Rect(14, 106, 182, 46),     # -- висота панелі не менша за 2 рамки (2 * 22)
-             "trails": pygame.Rect(204, 106, 182, 46)}
+SHOP_TABS = {"birds": pygame.Rect(14, 106, 120, 46),     # -- висота панелі не менша за 2 рамки (2 * 22)
+             "trails": pygame.Rect(140, 106, 120, 46),
+             "backgrounds": pygame.Rect(266, 106, 120, 46)}
 SHOP_PANEL = pygame.Rect(14, 156, 372, 328)
 SHOP_COLS = 2
 CARD_W, CARD_H, CARD_GAP = 164, 137, 10
@@ -104,6 +105,7 @@ SHOP_SCROLL_STEP = 40
 NOT_ENOUGH_TIME = 1.6      # -- сек, скільки висить «недостатньо монет»
 CARD_PREVIEW = (124, 86)   # -- у яку рамку вписується пташка на картці
 TRAIL_PREVIEW = (70, 60)   # -- пташка на картці шлейфу менша -- позаду неї ще шлейф
+BG_THUMB = (132, 74)       # -- мініатюра фону на картці
 TAB_DIM = 0.78             # -- неактивна вкладка темніша
 
 # -- екран налаштувань: панель з 5 рядками (підпис + перемикач або повзунок)
@@ -130,6 +132,27 @@ RECORDS_BACK_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
 RECORDS_BACK_RECT.midtop = (WIDTH // 2, RECORDS_PANEL.bottom + 14)
 SHOP_BACK_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
 SHOP_BACK_RECT.midtop = (WIDTH // 2, SHOP_PANEL.bottom + 24)
+
+# -- редактор свого шлейфу (картка «свій» у вкладці шлейфів): зверху живий перегляд, далі
+# -- два кольори (клік по квадратику 1 або 2, потім по кольору в палітрі), стиль і товщина
+EDIT_TITLE_Y = 56
+EDIT_PANEL = pygame.Rect(24, 86, 352, 430)
+EDIT_PREVIEW = pygame.Rect(46, 104, 308, 100)
+EDIT_BIRD_X = EDIT_PREVIEW.right - 64     # -- де в перегляді летить пташка (центр)
+EDIT_BIRD_BOB = 10                        # -- px, наскільки пташка в перегляді літає вгору-вниз
+EDIT_LABEL_X = EDIT_PANEL.x + 26
+EDIT_SLOTS = [pygame.Rect(232, 222, 44, 28), pygame.Rect(306, 222, 44, 28)]   # -- біля пташки -> хвіст
+SLOT_KEYS = ("c1", "c2")
+PALETTE_COLS = 8
+SWATCH_W, SWATCH_H, SWATCH_GAP = 28, 24, 10
+PALETTE_X = WIDTH // 2 - (PALETTE_COLS * SWATCH_W + (PALETTE_COLS - 1) * SWATCH_GAP) // 2
+PALETTE_Y = 266
+EDIT_STYLE_Y = 332
+EDIT_STYLE = pygame.Rect(52, EDIT_STYLE_Y + 30, 296, 44)
+EDIT_WIDTH_Y = 416
+EDIT_WIDTH = pygame.Rect(58, EDIT_WIDTH_Y + 46, 214, 16)
+EDIT_BACK_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
+EDIT_BACK_RECT.midtop = (WIDTH // 2, EDIT_PANEL.bottom + 6)
 
 # -- лічильник монет у меню
 COINS_CHIP = pygame.Rect(10, 12, 128, 46)
@@ -186,6 +209,18 @@ if "none" not in progress["owned_trails"]:
 if progress["trail"] not in progress["owned_trails"]:
     progress["trail"] = "none"
 progress["trail"] = kit.set_trail(progress["trail"])
+if "day" not in progress["owned_backgrounds"]:
+    progress["owned_backgrounds"].insert(0, "day")
+if progress["background"] not in progress["owned_backgrounds"]:
+    progress["background"] = "day"
+progress["background"] = kit.set_background(progress["background"])
+# -- свій шлейф: номери кольорів -- у межах палітри, стиль -- з відомих; редактор міняє цей словник
+custom = progress["custom_trail"]
+for key in SLOT_KEYS:
+    custom[key] %= len(TRAIL_PALETTE)
+if custom["style"] not in TRAIL_STYLES:
+    custom["style"] = settings.PROGRESS_DEFAULTS["custom_trail"]["style"]
+kit.custom_trail.config = custom
 GROUND_Y = kit.ground_y   # -- з цієї висоти починається земля, пташка про неї розбивається
 
 music = Music({"menu": os.path.join(MUSIC_DIR, "menu.mp3"),
@@ -237,8 +272,11 @@ over = False
 in_settings = False
 in_records = False
 in_shop = False
-shop_tab = "birds"  # -- вкладка магазину: "birds" або "trails"
+shop_tab = "birds"  # -- вкладка магазину: "birds", "trails" або "backgrounds"
 shop_scroll = 0
+editing = False     # -- чи відкритий редактор свого шлейфу (він усередині магазину)
+edit_slot = 0       # -- який колір зараз міняємо: 0 -- біля пташки, 1 -- хвіст
+edit_pts = []       # -- точки шлейфу в перегляді редактора: [x, y, вік, випадкове 0..1]
 not_enough = 0.0    # -- таймер напису «недостатньо монет»
 dragging = None     # -- який повзунок тягнуть мишкою
 
@@ -495,9 +533,16 @@ def finish_run():
 
 
 # -- налаштування
-def slider_value(name, mouse_x):
-    rect = SLIDERS[name]
+def slider_value(rect, mouse_x):
     return max(0.0, min(1.0, (mouse_x - rect.x) / rect.width))
+
+
+def drag_slider(name, mouse_x):
+    """повзунок, який тягнуть: гучність у налаштуваннях або товщина свого шлейфу в редакторі"""
+    if name == "trail_width":
+        kit.custom_trail.config["width"] = round(slider_value(EDIT_WIDTH, mouse_x), 2)
+    else:
+        set_slider(name, slider_value(SLIDERS[name], mouse_x))
 
 
 def set_slider(name, value):
@@ -531,8 +576,11 @@ def selector_step(name, step):
 
 
 def draw_slider(name):
-    rect = SLIDERS[name]
-    value = config[name]
+    draw_slider_bar(SLIDERS[name], config[name], SETTINGS_PANEL.right - 44)
+
+
+def draw_slider_bar(rect, value, number_x):
+    """доріжка повзунка з ручкою; праворуч (по центру number_x) -- відсотки"""
     fill_w = int(rect.width * value)
 
     pygame.draw.rect(screen, COLOR_OUTLINE, rect.inflate(6, 6), border_radius=6)
@@ -548,7 +596,7 @@ def draw_slider(name):
     pygame.draw.rect(screen, COLOR_KNOB_SHADE, knob, border_radius=5)
     pygame.draw.rect(screen, COLOR_KNOB, (knob.x, knob.y, knob.width, knob.height - 6), border_radius=5)
 
-    kit.draw_number(screen, f"{round(value * 100)}%", SETTINGS_PANEL.right - 44, rect.centery, style="dark")
+    kit.draw_number(screen, f"{round(value * 100)}%", number_x, rect.centery, style="dark")
 
 
 def draw_arrow(cx, cy, direction, hover):
@@ -572,16 +620,19 @@ def selector_label(name, value):
 
 def draw_selector(name, mouse_pos):
     rect = SELECTORS[name]
-    screen.blit(kit.panel.render(rect.width, rect.height), rect)
     value = selector_current(name)
-
     label = selector_label(name, value)
-    if label is not None:
-        blit_center(label, rect.centerx, rect.centery - 1)
-    else:
+    draw_selector_box(rect, label, mouse_pos)
+    if label is None:
         w, h = display.size_for(value)
         kit.draw_number(screen, f"{w}×{h}", rect.centerx, rect.centery - 1)
 
+
+def draw_selector_box(rect, label, mouse_pos):
+    """панель перемикача зі стрілками < ... >, посередині -- картинка label (або нічого)"""
+    screen.blit(kit.panel.render(rect.width, rect.height), rect)
+    if label is not None:
+        blit_center(label, rect.centerx, rect.centery - 1)
     left = pygame.Rect(rect.x, rect.y, SELECTOR_ARROW, rect.height)
     right = pygame.Rect(rect.right - SELECTOR_ARROW, rect.y, SELECTOR_ARROW, rect.height)
     draw_arrow(left.centerx + 2, rect.centery - 1, -1, left.collidepoint(mouse_pos))
@@ -611,7 +662,7 @@ def settings_click(x, y):
     for name, rect in SLIDERS.items():
         if rect.inflate(SLIDER_GRAB * 2, SLIDER_GRAB * 2).collidepoint(x, y):
             dragging = name
-            set_slider(name, slider_value(name, x))
+            drag_slider(name, x)
             return
     if BACK_BTN_RECT.collidepoint(x, y):
         pressed, press_time = "back", 0
@@ -661,6 +712,8 @@ def draw_records():
 SHOP = {
     "birds": {"items": kit.skins, "pick": "skin", "owned": "owned", "set": kit.set_skin},
     "trails": {"items": kit.trails, "pick": "trail", "owned": "owned_trails", "set": kit.set_trail},
+    "backgrounds": {"items": kit.backgrounds, "pick": "background", "owned": "owned_backgrounds",
+                    "set": kit.set_background},
 }
 
 
@@ -686,7 +739,10 @@ def shop_max_scroll():
 
 
 def shop_click(x, y):
-    """клік по вкладці -- перемикаємо; по картці -- купити (якщо вистачає монет) або обрати"""
+    """
+    клік по вкладці -- перемикаємо; по картці -- купити (якщо вистачає монет) або обрати.
+    Свій шлейф: щойно купили або клікнули по вже обраному -- відкривається редактор
+    """
     global not_enough, shop_tab, shop_scroll
 
     for name, rect in SHOP_TABS.items():
@@ -700,6 +756,7 @@ def shop_click(x, y):
     for item, rect in shop_cards():
         if not rect.collidepoint(x, y):
             continue
+        edit = item is kit.custom_trail and progress[tab["pick"]] == item.id
         if item.id not in owned:
             if progress["coins"] < item.price:
                 not_enough = NOT_ENOUGH_TIME
@@ -707,8 +764,11 @@ def shop_click(x, y):
             progress["coins"] -= item.price
             owned.append(item.id)
             sfx.play("coin")
+            edit = item is kit.custom_trail
         progress[tab["pick"]] = tab["set"](item.id)
         settings.save(SAVE_PATH, progress)
+        if edit:
+            open_editor()
         return
 
 
@@ -770,12 +830,18 @@ def draw_card(item, rect, mouse_pos):
         # -- пташка махає крилами (кожна зі своєю швидкістю кадрів)
         i = int(t_total * item.anim.fps) % len(item.anim.frames)
         blit_center(card_preview(item, i), rect.centerx, rect.y + 50)
-    else:
+    elif shop_tab == "trails":
         draw_trail_preview(item, rect)
+    else:
+        img = scenery.thumbnail(item.id, BG_THUMB)
+        box = img.get_rect(center=(rect.centerx, rect.y + 48))
+        pygame.draw.rect(screen, COLOR_OUTLINE, box.inflate(6, 6), border_radius=5)
+        screen.blit(img, box)
 
     y = rect.bottom - 34
     if selected:
-        blit_center(kit.text("selected"), rect.centerx, y)
+        # -- обраний свій шлейф можна змінити (клік по картці відкриває редактор)
+        blit_center(kit.text("edit" if item is kit.custom_trail else "selected"), rect.centerx, y)
     elif owned:
         blit_center(kit.text("select"), rect.centerx, y)
     else:
@@ -785,7 +851,7 @@ def draw_card(item, rect, mouse_pos):
 
 
 def draw_tabs(mouse_pos):
-    """вкладки ПТАШКИ | ШЛЕЙФИ: активна -- з зеленою рамкою, інша -- трохи темніша"""
+    """вкладки ПТАШКИ | ШЛЕЙФИ | ФОНИ: активна -- з зеленою рамкою, інші -- трохи темніші"""
     for name, rect in SHOP_TABS.items():
         img = kit.panel.render(rect.width, rect.height)
         active = name == shop_tab
@@ -824,6 +890,117 @@ def draw_shop(mouse_pos):
         blit_center(kit.text("not_enough"), WIDTH // 2, SHOP_PANEL.bottom + 10)
 
 
+# -- редактор свого шлейфу
+def open_editor():
+    global editing, edit_slot, not_enough
+    editing, edit_slot, not_enough = True, 0, 0.0
+    edit_pts.clear()
+
+
+def close_editor():
+    """назад у магазин; вибір уже діє (редактор міняє налаштування шлейфу на льоту) -- лишається зберегти"""
+    global editing, dragging
+    editing, dragging = False, None
+    settings.save(SAVE_PATH, progress)
+
+
+def palette_rects():
+    """(номер кольору, квадратик) палітри: 2 ряди по PALETTE_COLS"""
+    for i in range(len(TRAIL_PALETTE)):
+        row, col = divmod(i, PALETTE_COLS)
+        yield i, pygame.Rect(PALETTE_X + col * (SWATCH_W + SWATCH_GAP), PALETTE_Y + row * (SWATCH_H + SWATCH_GAP),
+                             SWATCH_W, SWATCH_H)
+
+
+def edit_bird_y(t):
+    """
+    у перегляді пташка плавно літає вгору-вниз. Це y центру тіла -- у великих пташок він не посередині
+    картинки (крила вгорі), тому зсуваємо так, щоб уся картинка була по центру віконця
+    """
+    bird = kit.bird
+    return EDIT_PREVIEW.centery + (bird.ay - bird.h / 2) + math.sin(t * 3) * EDIT_BIRD_BOB
+
+
+def update_edit_preview():
+    """точки шлейфу в перегляді: як у грі -- їдуть разом зі світом і згасають"""
+    for p in edit_pts:
+        p[0] -= PIPE_SPEED
+        p[2] += dts
+    edit_pts[:] = [p for p in edit_pts if p[2] < TRAIL_LIFE]
+    edit_pts.append([EDIT_BIRD_X - 6, edit_bird_y(t_total), 0.0, random.random()])
+
+
+def draw_swatch(rect, color, frame=None):
+    """квадратик кольору з контуром і бліком (як доріжка повзунка); frame -- колір рамки навколо"""
+    pygame.draw.rect(screen, COLOR_OUTLINE, rect.inflate(6, 6), border_radius=6)
+    pygame.draw.rect(screen, color, rect, border_radius=4)
+    shine = tuple(c + (255 - c) * 2 // 5 for c in color)
+    pygame.draw.rect(screen, shine, (rect.x + 3, rect.y + 3, rect.width - 6, 3))
+    if frame:
+        pygame.draw.rect(screen, frame, rect.inflate(12, 12), 2, border_radius=8)
+
+
+def draw_edit_preview():
+    """небо поточного фону, на ньому пташка зі своїм шлейфом"""
+    box = EDIT_PREVIEW
+    pygame.draw.rect(screen, COLOR_OUTLINE, box.inflate(6, 6), border_radius=6)
+    screen.blit(scenery.sky, box, area=box.move(0, 160))
+    screen.set_clip(box)
+    kit.custom_trail.draw(screen, [(x, y, age / TRAIL_LIFE, seed) for x, y, age, seed in reversed(edit_pts)],
+                          t_total)
+    bird = kit.bird
+    y = edit_bird_y(t_total)
+    v = (edit_bird_y(t_total + 1 / FPS) - y)          # -- px за кадр, як bird_v у грі
+    angle = max(BIRD_MAX_DOWN, min(BIRD_MAX_UP, -v * 8))
+    bird.draw(screen, EDIT_BIRD_X, y, angle, frame=int(t_total * bird.anim.fps))
+    screen.set_clip(None)
+
+
+def draw_editor(mouse_pos):
+    cfg = kit.custom_trail.config
+    blit_center(kit.text("custom_title"), WIDTH // 2, EDIT_TITLE_Y)
+    screen.blit(kit.panel.render(EDIT_PANEL.width, EDIT_PANEL.height), EDIT_PANEL)
+    draw_edit_preview()
+
+    # -- кольори: два квадратики (біля пташки -> хвіст), обраний -- у зеленій рамці; під ними палітра
+    label = kit.text("colors")
+    screen.blit(label, (EDIT_LABEL_X, EDIT_SLOTS[0].centery - label.get_height() // 2))
+    for i, rect in enumerate(EDIT_SLOTS):
+        hover = rect.collidepoint(mouse_pos)
+        draw_swatch(rect, TRAIL_PALETTE[cfg[SLOT_KEYS[i]]],
+                    COLOR_ARROW if i == edit_slot else COLOR_CARD_HOVER if hover else None)
+    draw_arrow((EDIT_SLOTS[0].right + EDIT_SLOTS[1].x) // 2, EDIT_SLOTS[0].centery, 1, False)
+    current = cfg[SLOT_KEYS[edit_slot]]
+    for i, rect in palette_rects():
+        hover = rect.collidepoint(mouse_pos)
+        draw_swatch(rect, TRAIL_PALETTE[i], COLOR_ARROW if i == current else COLOR_CARD_HOVER if hover else None)
+
+    screen.blit(kit.text("style"), (EDIT_LABEL_X, EDIT_STYLE_Y))
+    draw_selector_box(EDIT_STYLE, kit.text("style_" + cfg["style"]), mouse_pos)
+    screen.blit(kit.text("width"), (EDIT_LABEL_X, EDIT_WIDTH_Y))
+    draw_slider_bar(EDIT_WIDTH, cfg["width"], EDIT_PANEL.right - 44)
+
+
+def editor_click(x, y):
+    global edit_slot, dragging
+    cfg = kit.custom_trail.config
+    for i, rect in enumerate(EDIT_SLOTS):
+        if rect.inflate(8, 8).collidepoint(x, y):
+            edit_slot = i
+            return
+    for i, rect in palette_rects():
+        if rect.inflate(SWATCH_GAP, SWATCH_GAP).collidepoint(x, y):
+            cfg[SLOT_KEYS[edit_slot]] = i
+            return
+    if EDIT_STYLE.collidepoint(x, y):
+        step = -1 if x < EDIT_STYLE.x + SELECTOR_ARROW else 1
+        cfg["style"] = TRAIL_STYLES[(TRAIL_STYLES.index(cfg["style"]) + step) % len(TRAIL_STYLES)]
+        return
+    if EDIT_WIDTH.inflate(SLIDER_GRAB * 2, SLIDER_GRAB * 2).collidepoint(x, y):
+        dragging = "trail_width"
+        drag_slider(dragging, x)
+
+
 def reset_game():
     global bird_y, bird_v, score, over, start, run_coins, new_record, run_saved
     global shield, grace, speed_k
@@ -858,11 +1035,12 @@ def go_to_menu():
 
 def close_settings():
     """повернення в головне меню з налаштувань / рекордів / магазину"""
-    global in_settings, in_records, in_shop, dragging
+    global in_settings, in_records, in_shop, editing, dragging
 
     in_settings = False
     in_records = False
     in_shop = False
+    editing = False
     dragging = None
     settings.save(SETTINGS_PATH, config)
 
@@ -889,6 +1067,8 @@ while run:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE and start and not over:
                 bird_v = JUMP_VELOCITY
+            elif event.key == pygame.K_ESCAPE and editing:
+                close_editor()
             elif event.key == pygame.K_ESCAPE and (in_settings or in_records or in_shop):
                 close_settings()
             elif event.key == pygame.K_F11:
@@ -897,9 +1077,11 @@ while run:
                 settings.save(SETTINGS_PATH, config)
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if dragging:
-                dragging = None
+            if dragging == "trail_width":
+                settings.save(SAVE_PATH, progress)
+            elif dragging:
                 settings.save(SETTINGS_PATH, config)
+            dragging = None
 
         elif event.type == pygame.MOUSEWHEEL:
             if in_shop:
@@ -907,7 +1089,7 @@ while run:
 
         elif event.type == pygame.MOUSEMOTION:
             if dragging:
-                set_slider(dragging, slider_value(dragging, display.to_game(event.pos)[0]))
+                drag_slider(dragging, display.to_game(event.pos)[0])
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             x, y = display.to_game(event.pos)
@@ -919,6 +1101,13 @@ while run:
             elif in_records:
                 if not pressed and RECORDS_BACK_RECT.collidepoint(x, y):
                     pressed, press_time = "back", 0
+
+            elif in_shop and editing:
+                if not pressed:
+                    if EDIT_BACK_RECT.collidepoint(x, y):
+                        pressed, press_time = "back", 0
+                    else:
+                        editor_click(x, y)
 
             elif in_shop:
                 if not pressed:
@@ -958,6 +1147,8 @@ while run:
                 in_settings = True
             elif pressed == "record":
                 in_records = True
+            elif pressed == "back" and editing:
+                close_editor()
             elif pressed == "back":
                 close_settings()
             elif pressed == "menu":
@@ -1065,6 +1256,9 @@ while run:
     if start and not over and kit.trail.id != "none":
         trail_pts.append([BIRD_START_X + BIRD_SIZE / 2 - 6, bird_y + BIRD_SIZE / 2, 0.0, random.random()])
 
+    if editing:
+        update_edit_preview()
+
     if over:
         finish_run()
 
@@ -1093,21 +1287,26 @@ while run:
     mouse_pos = display.mouse_pos()
 
     if not start and (in_settings or in_records or in_shop):
-        back = BACK_BTN_RECT if in_settings else RECORDS_BACK_RECT if in_records else SHOP_BACK_RECT
-
         scenery.draw_back(view)
         scenery.draw_ground(view)
+        button = kit.menu
         if in_settings:
+            back = BACK_BTN_RECT
             draw_settings(mouse_pos)
         elif in_records:
+            back = RECORDS_BACK_RECT
             draw_records()
+        elif editing:
+            back, button = EDIT_BACK_RECT, kit.done     # -- з редактора -- назад у магазин
+            draw_editor(mouse_pos)
         else:
+            back = SHOP_BACK_RECT
             draw_shop(mouse_pos)
             draw_menu_counters()     # -- баланс монет видно в магазині
 
-        kit.menu.update(dts, back.collidepoint(mouse_pos),
-                        press_progress if pressed == "back" else 0.0)
-        kit.menu.draw(screen, t_total, back.x, back.y)
+        button.update(dts, back.collidepoint(mouse_pos),
+                      press_progress if pressed == "back" else 0.0)
+        button.draw(screen, t_total, back.x, back.y)
 
     elif not start:
         for name, sprite in MENU_SPRITES.items():

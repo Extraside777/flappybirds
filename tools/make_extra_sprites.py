@@ -18,6 +18,8 @@
   * малює бонуси (щит, сповільнення, x2 монети), бульбашку щита навколо пташки і їхні звуки
   * ріже скіни пташок для магазину з картинок у assets/images/skins (див. SKIN_SOURCES)
   * малює ще дві пташки для магазину піксель-артом: ніндзя і фенікс (див. PAINTED)
+  * малює кнопку ГОТОВО/DONE (вихід з редактора свого шлейфу)
+  * малює фони для магазину: захід сонця, ніч і зиму (див. BACKGROUNDS)
   * пише assets/sprites/extra.json -- його читає гра
 
 Кирилиці в assets/fonts/OutlineStyleRegular.ttf немає, тому букви малюються шрифтом
@@ -373,17 +375,33 @@ TEXTS = {
            "score": "SCORE", "best": "BEST", "new_record": "NEW RECORD!",
            "coins": "COINS", "games": "GAMES PLAYED", "records": "RECORDS",
            "shop_title": "SHOP", "select": "SELECT", "selected": "SELECTED", "not_enough": "NOT ENOUGH COINS",
-           "tab_birds": "BIRDS", "tab_trails": "TRAILS"},
+           "tab_birds": "BIRDS", "tab_trails": "TRAILS", "tab_backgrounds": "WORLDS",
+           "custom_title": "CUSTOM TRAIL", "edit": "EDIT", "colors": "COLORS", "style": "STYLE", "width": "WIDTH",
+           "style_ribbon": "RIBBON", "style_glow": "GLOW", "style_bubbles": "BUBBLES", "style_pixels": "PIXELS",
+           "style_sparks": "SPARKS"},
     "uk": {"game_over": "КІНЕЦЬ ГРИ", "settings": "НАЛАШТУВАННЯ", "language": "МОВА",
            "menu_music": "МУЗИКА В МЕНЮ", "game_music": "МУЗИКА В ГРІ", "sounds": "ЗВУКИ",
            "window_size": "РОЗМІР ВІКНА", "auto": "АВТО", "fullscreen": "ПОВНИЙ ЕКРАН",
            "score": "РАХУНОК", "best": "РЕКОРД", "new_record": "НОВИЙ РЕКОРД!",
            "coins": "МОНЕТИ", "games": "ЗІГРАНО ІГОР", "records": "РЕКОРДИ",
            "shop_title": "МАГАЗИН", "select": "ОБРАТИ", "selected": "ОБРАНО", "not_enough": "НЕДОСТАТНЬО МОНЕТ",
-           "tab_birds": "ПТАШКИ", "tab_trails": "ШЛЕЙФИ"},
+           "tab_birds": "ПТАШКИ", "tab_trails": "ШЛЕЙФИ", "tab_backgrounds": "ФОНИ",
+           "custom_title": "СВІЙ ШЛЕЙФ", "edit": "ЗМІНИТИ", "colors": "КОЛЬОРИ", "style": "СТИЛЬ", "width": "ТОВЩИНА",
+           "style_ribbon": "СТРІЧКА", "style_glow": "СЯЙВО", "style_bubbles": "БУЛЬБАШКИ", "style_pixels": "ПІКСЕЛІ",
+           "style_sparks": "ІСКРИ"},
 }
-BIG = {"game_over", "settings", "records", "shop_title"}
-CARD = {"select", "selected"}     # -- написи на картці пташки в магазині: дрібніші
+BIG = {"game_over", "settings", "records", "shop_title", "custom_title"}
+CARD = {"select", "selected", "edit"}     # -- написи на картці пташки в магазині: дрібніші
+GREEN_CARD = {"selected", "edit"}         # -- «обрано» і «змінити» (картка обраного свого шлейфу) -- зелені
+TAB_TEXT_W = 100          # -- три вкладки магазину по 120 px: напис з запасом під рамку
+# -- розмір літер вкладок: один на всі вкладки мови, найбільший, з яким кожна влазить
+TAB_CAPS = {}
+for lang, items in TEXTS.items():
+    cap = 17
+    while cap > 10 and max(pixel_text(t, cap, shade=0.6, fixed=True).shape[1]
+                           for k, t in items.items() if k.startswith("tab_")) > TAB_TEXT_W:
+        cap -= 1
+    TAB_CAPS[lang] = cap
 GREEN = (150, 230, 90)
 GREEN_SHADE = (80, 180, 60)
 GOLD = (255, 214, 60)
@@ -398,8 +416,10 @@ for lang, items in TEXTS.items():
             while spr.shape[1] > 372:           # -- довгі слова (НАЛАШТУВАННЯ) зменшуємо, щоб влізли в екран
                 cap -= 1
                 spr = pixel_text(text, cap, outline=3, shade=0.7, drop=3)
+        elif key.startswith("tab_"):
+            spr = pixel_text(text, TAB_CAPS[lang], shade=0.6, fixed=True)
         elif key in CARD:
-            green = key == "selected"
+            green = key in GREEN_CARD
             cap = 14
             while True:
                 spr = pixel_text(text, cap, shade=0.55, fixed=True, track=1,
@@ -612,9 +632,13 @@ extra["bird"] = {"file": save("bird_sheet.png", np.concatenate(frames, axis=1), 
 # кадри сіткою cols x rows) в assets/images/skins і допиши рядок сюди. Порядок = порядок у магазині.
 SKIN_SOURCES = [
     {"id": "blue", "price": 100, "image": "blue_bird.webp", "cols": 4, "rows": 3,
-     "scale": 0.15, "fps": 24,
+     "scale": 0.15, "fps": 16,
      # -- де центр тіла (хітбокса) відносно кінчика дзьоба, у пікселях вихідної картинки
-     "body": (-120, 25)},
+     "body": (-120, 25),
+     # -- у картинці 12 кадрів -- це аж три помахи підряд (крила вгору -> вниз -> вгору ...), тому пташка
+     # -- махала втричі швидше за інших. Беремо з них один повний помах: вгору -> назад -> вниз -> вгору
+     # -- (8 кадрів на 16 fps = 2 помахи на секунду, як у ніндзя і фенікса)
+     "order": [2, 3, 6, 4, 7, 5, 1, 0]},
 ]
 
 
@@ -723,6 +747,8 @@ extra["skins"] = [{"id": "classic", "price": 0, **extra["bird"],
                    "ax": extra["bird"]["fw"] / 2, "ay": extra["bird"]["fh"] / 2, "art_px": BIRD_SCALE}]
 for src in SKIN_SOURCES:
     sk_frames, (ax, ay) = cut_skin(src)
+    if "order" in src:
+        sk_frames = [sk_frames[i] for i in src["order"]]
     sfh, sfw = sk_frames[0].shape[:2]
     extra["skins"].append({
         "id": src["id"], "price": src["price"],
@@ -1213,6 +1239,351 @@ write_sound(os.path.join(SOUNDS_OUT, "powerup.wav"),
             [(note(1046.5, 30), 0.055), (note(1318.5, 30), 0.055), (note(1568.0, 30), 0.055),
              (note(2093.0, 7), 0.28)])
 write_sound(os.path.join(SOUNDS_OUT, "shield_break.wav"), [(pop, 0.32)])
+
+
+# --------------------------------------------------------------------------
+# 9. кнопка ГОТОВО (вихід з редактора свого шлейфу): основа -- кнопка MENU, замість будиночка галочка
+# --------------------------------------------------------------------------
+def check_icon():
+    img = Image.new("L", (15, 13), 0)
+    ImageDraw.Draw(img).line([(2, 7), (6, 10), (12, 2)], fill=1, width=3, joint="curve")
+    m = np.pad(np.array(img, bool), 1)
+    a = np.zeros(m.shape + (4,), np.uint8)
+    a[dilate(m, 1, square=False)] = (*OUTLINE, 255)
+    a[m] = (*G["m"], 255)
+    a[m & ~np.roll(m, 1, axis=0)] = (*G["h"], 255)      # -- світла кромка зверху
+    a[m & ~np.roll(m, -1, axis=0)] = (*G["d"], 255)     # -- тінь знизу
+    return trim(a)
+
+
+DONE_WORDS = {"en": "DONE", "uk": "ГОТОВО"}
+DONE_TEXT_X0 = 84         # -- текст між галочкою і правою рамкою
+for lang, word in DONE_WORDS.items():
+    cap = fit_cap([word], 220 - 24 - DONE_TEXT_X0, fit_cap(list(BUTTON_WORDS[lang].values())[:3],
+                                                           MENU_TEXT_X1 - MENU_TEXT_X0, 22))
+    extra["buttons"][lang]["done"] = relabel("done", word, 22, cap, (DONE_TEXT_X0 + 220 - 24) // 2, src="menu",
+                                             icon=upscale(check_icon(), 3), icon_x=52, folder=f"buttons/{lang}")
+
+# --------------------------------------------------------------------------
+# 10. фони для магазину: захід сонця, ніч, зима («день» -- звичайний фон з tools/make_sprites.py)
+# --------------------------------------------------------------------------
+# Кожен фон -- ті самі шари, що й звичайний: небо, дальній шар (гори / місто), кущі (ялинки) і земля,
+# плюс світило (сонце / місяць) і ефекти, які гра малює сама (зорі, сніг, світлячки -- "fx").
+# Шари малюються «художніми» пікселями BG_PX x BG_PX і повторюються по горизонталі без шва.
+BG_PX = 2
+BG_W = base_manifest["layers"]["ground"]["w"] // BG_PX    # -- 400 художніх пікселів = 800 px, як у звичайних шарів
+SCREEN_W, SCREEN_H = base_manifest["screen"]["w"], base_manifest["screen"]["h"]
+GROUND_Y = base_manifest["screen"]["ground_y"]
+LAYER_BOTTOM = GROUND_Y + 6       # -- дальній шар трохи заходить під землю, щоб не було щілини
+
+
+def sky_gradient(stops, bands=16):
+    """небо смугами, як у піксель-арті: stops -- [(0..1 зверху вниз, колір)]; межі смуг -- «шахівницею»"""
+    h, w = SCREEN_H // BG_PX, SCREEN_W // BG_PX
+    pos = [p for p, _ in stops]
+    cols = np.array([c for _, c in stops], float)
+
+    def color_at(t):
+        return np.stack([np.interp(t, pos, cols[:, i]) for i in range(3)], axis=1)
+
+    t = (np.arange(h) + 0.5) / h
+    band = np.minimum((t * bands).astype(int), bands - 1)
+    row = color_at((band + 0.5) / bands)
+    prev = color_at(np.maximum(band - 0.5, 0) / bands)
+    img = np.repeat(row[:, None], w, axis=1)
+    yy, xx = np.mgrid[0:h, 0:w]
+    dith = ((t * bands - band)[:, None] < 0.2) & ((xx + yy) % 2 == 0) & (band[:, None] > 0)
+    img[dith] = np.repeat(prev[:, None], w, axis=1)[dith]
+    return upscale(np.round(img).astype(np.uint8), BG_PX)
+
+
+def wrap_dx(x, cx):
+    """відстань по x з урахуванням того, що шар зациклений (правий край переходить у лівий)"""
+    return (x - cx + BG_W / 2) % BG_W - BG_W / 2
+
+
+def wrap_dilate(m):
+    """розширення маски на 1 піксель хрестом; по горизонталі -- через край шару (він зациклений)"""
+    out = m | np.roll(m, 1, axis=1) | np.roll(m, -1, axis=1)
+    out[1:] |= m[:-1]
+    out[:-1] |= m[1:]
+    return out
+
+
+def spread(n, rng, jitter=0.35):
+    """n точок по ширині шару, приблизно рівномірно, з випадковим зсувом"""
+    return [(i + rng.uniform(-jitter, jitter)) * BG_W / n for i in range(n)]
+
+
+def mountains(img, peaks, rng, light, shade, rim=None, snow=None):
+    """
+    гірське пасмо: peaks -- [(x вершини, y вершини, крутизна схилів)] у художніх пікселях.
+    Лівий схил кожної гори світліший (light), правий -- в тіні (shade).
+    snow -- (глибина шапки, світлий сніг, сніг у тіні): шапки на вершинах з нерівним нижнім краєм.
+    """
+    h = img.shape[0]
+    xs = np.arange(BG_W)
+    top = np.full(BG_W, 1e9)
+    lit = np.zeros(BG_W, bool)
+    summit = np.zeros(BG_W)
+    for px, py, slope in peaks:
+        dx = wrap_dx(xs, px)
+        t = py + np.abs(dx) * slope
+        better = t < top
+        top[better], lit[better], summit[better] = t[better], dx[better] < 0, py
+    top = np.round(top + (rng.random(BG_W) < 0.3) * rng.choice([-1, 1], BG_W)).astype(int)   # -- нерівний край
+    yy = np.arange(h)[:, None]
+    mask = yy >= top[None]
+    img[mask & lit[None]] = (*light, 255)
+    img[mask & ~lit[None]] = (*shade, 255)
+    if snow:
+        depth, s_light, s_shade = snow
+        teeth = np.repeat(rng.integers(0, 4, BG_W // 3 + 1), 3)[:BG_W]     # -- зубчики шириною 3 px
+        cap = mask & (yy < summit[None] + depth + teeth[None])
+        img[cap & lit[None]] = (*s_light, 255)
+        img[cap & ~lit[None]] = (*s_shade, 255)
+    if rim:
+        img[mask & (yy == top[None])] = (*rim, 255)                       # -- підсвічений край пасма
+    return img
+
+
+def skyline(img, rng, tops, widths, body, edge, lit, dark, lit_chance):
+    """
+    місто: будинки підряд по всій ширині шару (останній переходить через край -- шва нема).
+    tops / widths -- діапазони висоти даху і ширини будинку; вікна 2x2, світиться частина з них
+    """
+    h = img.shape[0]
+    x = 0
+    while x < BG_W:
+        w, top = int(rng.integers(*widths)), int(rng.integers(*tops))
+        cols = np.arange(x, x + w) % BG_W
+        kind = rng.random()
+        if kind < 0.3 and w >= 10:                       # -- надбудова на даху
+            img[top - 4:top, cols[2:w - 2]] = (*body, 255)
+            img[top - 4, cols[2:w - 2]] = (*edge, 255)
+        elif kind < 0.55:                                # -- антена з вогником
+            img[top - 6:top, cols[w // 2]] = (*edge, 255)
+            img[top - 7, cols[w // 2]] = (255, 90, 80, 255)
+        img[top:h, cols] = (*body, 255)
+        img[top, cols] = (*edge, 255)
+        img[top:h, cols[0]] = (*edge, 255)
+        for wy in range(top + 3, h - 3, 4):
+            for wx in range(2, w - 2, 4):
+                c = lit if rng.random() < lit_chance else dark
+                img[wy:wy + 2, cols[wx:wx + 2]] = (*c, 255)
+        x += w + int(rng.integers(0, 3))
+    return img
+
+
+def clumps(img, rng, n, radius, rise, base, light, dark, outline, aspect=1.0, leaves=True):
+    """
+    кущі (або кучугури снігу): круглі купки впритул, кожна з темним контуром, освітлена зверху-зліва.
+    radius -- діапазон радіусів, rise -- на скільки центр купки вище низу шару,
+    aspect -- у скільки разів купка ширша, ніж вища; leaves -- крапочки-листочки на межі світла і тіні
+    """
+    h = img.shape[0]
+    yy, xx = np.mgrid[0:h, 0:BG_W]
+    items = [(cx, h - rng.uniform(*rise), rng.uniform(*radius)) for cx in spread(n, rng)]
+    rng.shuffle(items)
+    for cx, cy, r in items:
+        dx, dy = wrap_dx(xx, cx) / aspect, yy - cy
+        inside = (dx ** 2 + dy ** 2 <= r * r) | ((dy >= 0) & (np.abs(dx) <= r))   # -- нижче центру -- до низу
+        lit = inside & ((dx + r * 0.3) ** 2 + (dy + r * 0.38) ** 2 <= (r * 0.6) ** 2)
+        img[wrap_dilate(inside) & ~inside] = (*outline, 255)
+        img[inside] = (*base, 255)
+        img[lit] = (*light, 255)
+        img[inside & (dy > 0) & (dx ** 2 + dy ** 2 > (r * 0.72) ** 2)] = (*dark, 255)
+        if leaves:
+            edge = inside & ((dx + r * 0.3) ** 2 + (dy + r * 0.38) ** 2 <= (r * 0.8) ** 2) & ~lit & (dy < r * 0.3)
+            img[edge & (rng.random(edge.shape) < 0.3)] = (*light, 255)
+            img[lit & (rng.random(lit.shape) < 0.07)] = (*base, 255)
+    return img
+
+
+CLOUDS = [load(c["file"]) for c in base_manifest["clouds"]]
+
+
+def recolor_clouds(dark, light, alpha, folder):
+    """хмари звичайного фону в інших кольорах: світлість пікселя -> колір між dark і light"""
+    files = []
+    for i, c in enumerate(CLOUDS):
+        lum = c[..., :3].astype(float) @ [0.3, 0.59, 0.11]
+        solid = c[..., 3] > 0
+        lo, hi = lum[solid].min(), lum[solid].max()
+        k = np.clip((lum - lo) / max(1.0, hi - lo), 0, 1)[..., None]
+        out = c.copy()
+        out[..., :3] = np.round(np.array(dark) + (np.array(light) - np.array(dark)) * k)
+        out[..., 3] = (c[..., 3].astype(int) * alpha // 255).astype(np.uint8)
+        files.append(save(f"cloud_{i + 1}.png", out, folder))
+    return files
+
+
+def pines(img, rng, n, heights, base_y, leaf, leaf_shade, snow, snow_shade, outline):
+    """ялинки в снігу: три яруси-трикутники, на кожному ярусі сніг; лівий бік світліший"""
+    h = img.shape[0]
+    yy, xx = np.mgrid[0:h, 0:BG_W]
+    for cx in spread(n, rng, 0.3):
+        th = rng.uniform(*heights)
+        top = base_y - th
+        dx = wrap_dx(xx, cx)
+        tree = np.zeros((h, BG_W), bool)
+        caps = np.zeros((h, BG_W), bool)
+        trunk = (np.abs(dx + 0.5) <= 1) & (yy >= base_y - 4) & (yy < base_y)
+        for i in range(3):
+            y0, y1 = top + th * 0.26 * i, top + th * (0.42 + 0.27 * i)
+            hw = th * (0.2 + 0.08 * i)
+            tier = (yy >= y0) & (yy < y1) & (np.abs(dx) <= (yy - y0 + 1) / (y1 - y0) * hw)
+            tree |= tier
+            caps |= tier & (yy < y0 + (y1 - y0) * 0.5 - np.abs(dx) * 0.35 + (np.round(dx) % 3 == 0))
+        img[wrap_dilate(tree | trunk) & ~(tree | trunk)] = (*outline, 255)
+        img[trunk] = (110, 76, 64, 255)
+        img[tree & (dx < 0)] = (*leaf, 255)
+        img[tree & (dx >= 0)] = (*leaf_shade, 255)
+        img[caps & (dx < 0)] = (*snow, 255)
+        img[caps & (dx >= 0)] = (*snow_shade, 255)
+    return img
+
+
+GROUND = load(base_manifest["layers"]["ground"]["file"])
+
+
+def recolor_ground(fn):
+    """земля звичайного фону, перефарбована: fn(rgb, де трава) -> новий rgb"""
+    rgb = GROUND[..., :3].astype(float)
+    grass = (rgb[..., 1] > rgb[..., 0] + 20) & (rgb[..., 1] > rgb[..., 2] + 20)
+    out = GROUND.copy()
+    out[..., :3] = np.clip(np.round(fn(rgb, grass)), 0, 255).astype(np.uint8)
+    return out
+
+
+def snowy(rgb, grass):
+    """трава -> сніг (світлість беремо із зеленого каналу), земля -> холодна сіро-фіолетова"""
+    g = rgb[..., 1]
+    snow = np.stack([np.interp(g, [70, 110, 150, 200, 255], c) for c in
+                     ([86, 112, 150, 222, 248], [104, 136, 182, 236, 252], [150, 190, 228, 252, 255])], axis=-1)
+    dirt = np.stack([np.interp(g, [60, 110, 180], c) for c in
+                     ([112, 152, 190], [86, 120, 164], [110, 146, 180])], axis=-1)
+    return np.where(grass[..., None], snow, dirt)
+
+
+def disc(R, pad):
+    s = 2 * (R + pad)
+    yy, xx = np.mgrid[0:s, 0:s] + 0.5
+    return s, yy - s / 2, xx - s / 2, np.hypot(xx - s / 2, yy - s / 2)
+
+
+def sun_sprite(R=22):
+    """велике сонце над горизонтом: знизу вгору від помаранчевого до світло-жовтого, внизу -- прорізи-смужки"""
+    s, dy, dx, d = disc(R, 4)
+    a = np.zeros((s, s, 4), np.uint8)
+    a[d <= R + 4] = (255, 190, 140, 50)
+    a[d <= R + 2] = (255, 205, 150, 100)
+    body = d <= R
+    k = (dy + R) / (2 * R)                                   # -- 0 зверху, 1 знизу
+    for lo, c in ((-1, (255, 248, 196)), (0.3, (255, 226, 140)), (0.52, (255, 186, 100)), (0.74, (255, 148, 86))):
+        a[body & (k >= lo)] = (*c, 255)
+    for y0, th in ((0.56, 1), (0.68, 1), (0.78, 2), (0.88, 2)):
+        a[body & (k >= y0) & (k < y0 + th / (2 * R))] = 0    # -- прорізи: крізь них видно небо
+    return upscale(a, BG_PX)
+
+
+def moon_sprite(R=12):
+    """повний місяць з кратерами і м'яким сяйвом"""
+    s, dy, dx, d = disc(R, 4)
+    a = np.zeros((s, s, 4), np.uint8)
+    a[d <= R + 4] = (190, 200, 255, 26)
+    a[d <= R + 2] = (210, 215, 255, 60)
+    body = d <= R
+    a[body] = (250, 246, 222, 255)
+    a[body & (np.hypot(dx - 4, dy - 3) > R - 1)] = (222, 216, 190, 255)    # -- тінь справа знизу
+    for cx, cy, r in ((-4, -3, 3.0), (3, 4, 2.2), (4, -5, 1.6), (-3, 5, 1.4)):
+        a[body & (np.hypot(dx - cx, dy - cy) <= r)] = (226, 220, 192, 255)
+        a[body & (np.hypot(dx - cx + 0.8, dy - cy + 0.8) <= r - 0.9) & (np.hypot(dx - cx, dy - cy) <= r)] = \
+            (212, 206, 178, 255)
+    return upscale(a, BG_PX)
+
+
+def far_layer(h):
+    return np.zeros((h // BG_PX, BG_W, 4), np.uint8)
+
+
+def sunset(rng):
+    far = far_layer(180)
+    for (n, tops, slopes), (light, shade, rim) in zip(
+            [(5, (2, 22), (0.55, 0.8)), (7, (26, 46), (0.6, 0.9)), (9, (50, 66), (0.7, 1.0))],
+            [((214, 120, 150), (186, 98, 140), (255, 182, 150)), ((156, 78, 128), (132, 62, 116), (236, 130, 130)),
+             ((104, 48, 102), (88, 40, 92), (176, 84, 110))]):
+        mountains(far, [(x, rng.uniform(*tops), rng.uniform(*slopes)) for x in spread(n, rng)], rng,
+                  light, shade, rim=rim)
+    bushes = clumps(far_layer(60), rng, 26, (8, 14), (4, 10),
+                    (80, 40, 86), (128, 64, 104), (56, 28, 68), (36, 16, 46))
+    return {"sky": sky_gradient([(0, (44, 38, 112)), (0.3, (120, 60, 150)), (0.55, (222, 92, 130)),
+                                 (0.72, (255, 150, 100)), (0.86, (255, 206, 132)), (1, (255, 226, 160))]),
+            "far": far, "bushes": bushes,
+            "ground": recolor_ground(lambda rgb, grass: rgb * [1.0, 0.8, 0.76] + [12, 0, 18]),
+            "body": (sun_sprite(), (118, 452)), "clouds": ((206, 104, 146), (255, 216, 192), 240), "fx": []}
+
+
+def night(rng):
+    far = far_layer(160)
+    skyline(far, rng, (8, 36), (12, 26), (38, 46, 94), (52, 62, 116), (150, 140, 110), (44, 52, 104), 0.12)
+    skyline(far, rng, (30, 58), (10, 22), (22, 26, 58), (36, 42, 84), (255, 214, 110), (32, 38, 76), 0.38)
+    bushes = clumps(far_layer(60), rng, 26, (8, 14), (4, 10),
+                    (20, 64, 62), (36, 100, 84), (12, 44, 48), (8, 26, 34))
+    return {"sky": sky_gradient([(0, (8, 10, 32)), (0.45, (22, 30, 78)), (0.76, (48, 52, 118)),
+                                 (1, (86, 70, 140))]),
+            "far": far, "bushes": bushes,
+            "ground": recolor_ground(lambda rgb, grass: rgb * [0.4, 0.48, 0.68] + [10, 12, 34]),
+            "body": (moon_sprite(), (300, 130)), "body_thumb_y": 404,
+            "clouds": ((30, 36, 80), (74, 84, 146), 190), "fx": ["stars", "fireflies"]}
+
+
+def winter(rng):
+    far = far_layer(220)
+    mountains(far, [(x, rng.uniform(0, 20), rng.uniform(0.7, 1.0)) for x in spread(5, rng)], rng,
+              (160, 180, 214), (132, 152, 192), snow=(12, (246, 250, 255), (206, 222, 244)))
+    mountains(far, [(x, rng.uniform(34, 56), rng.uniform(0.75, 1.1)) for x in spread(7, rng)], rng,
+              (112, 132, 176), (92, 110, 156), snow=(9, (236, 244, 255), (190, 208, 236)))
+    trees = far_layer(112)
+    th = trees.shape[0]
+    pines(trees, rng, 16, (22, 32), th - 6, (84, 128, 132), (66, 106, 116), (232, 240, 252), (196, 212, 236),
+          (46, 74, 92))
+    pines(trees, rng, 12, (32, 46), th - 2, (40, 108, 88), (28, 82, 74), (248, 252, 255), (206, 222, 246),
+          (20, 46, 54))
+    clumps(trees, rng, 22, (4, 7), (0, 2), (232, 242, 255), (252, 254, 255), (200, 216, 242), (150, 174, 214),
+           aspect=1.8, leaves=False)
+    return {"sky": sky_gradient([(0, (110, 170, 230)), (0.5, (170, 210, 245)), (0.8, (215, 235, 252)),
+                                 (1, (236, 246, 255))]),
+            "far": far, "bushes": trees, "ground": recolor_ground(snowy),
+            "body": None, "clouds": None, "fx": ["snow"]}
+
+
+# -- фони в порядку магазину: (id, ціна, хто малює); «день» -- звичайний фон, він є в усіх
+BACKGROUNDS = [("sunset", 150, sunset), ("night", 250, night), ("winter", 350, winter)]
+_layers = base_manifest["layers"]
+extra["backgrounds"] = [{
+    "id": "day", "price": 0, "sky": base_manifest["sky"]["file"],
+    "layers": {name: {"file": _layers[name]["file"], "y": _layers[name]["y"], "factor": _layers[name]["factor"]}
+               for name in ("far", "bushes", "ground")},
+    "body": None, "clouds": None, "fx": [],
+}]
+for i, (bg_id, price, paint_bg) in enumerate(BACKGROUNDS):
+    art = paint_bg(np.random.default_rng(100 + i))     # -- своє зерно: фони не залежать один від одного
+    folder = f"backgrounds/{bg_id}"
+    layers = {}
+    for name, factor in (("far", 0.12), ("bushes", 0.45), ("ground", 1.0)):
+        a = art[name] if name == "ground" else upscale(art[name], BG_PX)
+        bottom = GROUND_Y + a.shape[0] if name == "ground" else LAYER_BOTTOM if name == "far" else GROUND_Y
+        layers[name] = {"file": save(f"{name}.png", a, folder), "y": int(bottom - a.shape[0]), "factor": factor}
+    spec = {"id": bg_id, "price": price, "sky": save("sky.png", art["sky"], folder), "layers": layers,
+            "body": None, "clouds": art["clouds"] and recolor_clouds(*art["clouds"], folder), "fx": art["fx"]}
+    if art["body"] is not None:
+        img, (cx, cy) = art["body"]
+        x, y = cx - img.shape[1] // 2, cy - img.shape[0] // 2
+        spec["body"] = {"file": save("body.png", img, folder), "x": int(x), "y": int(y),
+                        # -- на мініатюрі в магазині видно тільки низ неба -- там і показуємо світило
+                        "thumb_y": int(art.get("body_thumb_y", cy) - img.shape[0] // 2)}
+    extra["backgrounds"].append(spec)
 
 with open(os.path.join(OUT, "extra.json"), "w", encoding="utf-8") as fh_:
     json.dump(extra, fh_, ensure_ascii=False, indent=2)

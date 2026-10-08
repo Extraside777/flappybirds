@@ -52,6 +52,20 @@
           11,
           18
         ]
+      },
+      "done": {
+        "file": "buttons/en/btn_done_sheet.png",
+        "frames": 14,
+        "fw": 220,
+        "fh": 94,
+        "x": 0,
+        "y": 0,
+        "fps": 24,
+        "pause": 2.4,
+        "trim": [
+          11,
+          18
+        ]
       }
     },
     "uk": {
@@ -98,6 +112,20 @@
           11,
           18
         ]
+      },
+      "done": {
+        "file": "buttons/uk/btn_done_sheet.png",
+        "frames": 14,
+        "fw": 220,
+        "fh": 94,
+        "x": 0,
+        "y": 0,
+        "fps": 24,
+        "pause": 2.4,
+        "trim": [
+          11,
+          18
+        ]
       }
     }
   },
@@ -123,7 +151,18 @@
       "selected": "text/en/selected.png",
       "not_enough": "text/en/not_enough.png",
       "tab_birds": "text/en/tab_birds.png",
-      "tab_trails": "text/en/tab_trails.png"
+      "tab_trails": "text/en/tab_trails.png",
+      "tab_backgrounds": "text/en/tab_backgrounds.png",
+      "custom_title": "text/en/custom_title.png",
+      "edit": "text/en/edit.png",
+      "colors": "text/en/colors.png",
+      "style": "text/en/style.png",
+      "width": "text/en/width.png",
+      "style_ribbon": "text/en/style_ribbon.png",
+      "style_glow": "text/en/style_glow.png",
+      "style_bubbles": "text/en/style_bubbles.png",
+      "style_pixels": "text/en/style_pixels.png",
+      "style_sparks": "text/en/style_sparks.png"
     },
     "uk": {
       "game_over": "text/uk/game_over.png",
@@ -146,7 +185,18 @@
       "selected": "text/uk/selected.png",
       "not_enough": "text/uk/not_enough.png",
       "tab_birds": "text/uk/tab_birds.png",
-      "tab_trails": "text/uk/tab_trails.png"
+      "tab_trails": "text/uk/tab_trails.png",
+      "tab_backgrounds": "text/uk/tab_backgrounds.png",
+      "custom_title": "text/uk/custom_title.png",
+      "edit": "text/uk/edit.png",
+      "colors": "text/uk/colors.png",
+      "style": "text/uk/style.png",
+      "width": "text/uk/width.png",
+      "style_ribbon": "text/uk/style_ribbon.png",
+      "style_glow": "text/uk/style_glow.png",
+      "style_bubbles": "text/uk/style_bubbles.png",
+      "style_pixels": "text/uk/style_pixels.png",
+      "style_sparks": "text/uk/style_sparks.png"
     }
   },
   "lang_names": {
@@ -230,10 +280,10 @@
       "id": "blue",
       "price": 100,
       "file": "skins/blue_sheet.png",
-      "frames": 12,
+      "frames": 8,
       "fw": 68,
       "fh": 65,
-      "fps": 24,
+      "fps": 16,
       "ax": 46.2,
       "ay": 45.0
     },
@@ -302,5 +352,140 @@
       "fps": 12,
       "pause": 0.0
     }
-  }
+  },
+  "backgrounds": [
+    {
+      "id": "day",
+      "price": 0,
+      "sky": "bg_sky.png",
+      "layers": {
+        "far": {
+          "file": "layers/bg_far.png",
+          "y": 487,
+          "factor": 0.12
+        },
+        "bushes": {
+          "file": "layers/bg_bushes.png",
+          "y": 564,
+          "factor": 0.45
+        },
+        "ground": {
+          "file": "layers/bg_ground.png",
+          "y": 624,
+          "factor": 1.0
+        }
+      },
+      "body": null,
+      "clouds": null,
+      "fx": []
+    },
+    {
+      "id": "sunset",
+      "price": 150,
+      "sky": "backgrounds/sunset/sky.png",
+      "layers": {
+        "far": {
+          "file": "backgrounds/sunset/far.png",
+          "y": 450,
+          "factor": 0.12
+        },
+        "bushes": {
+          "file": "backgrounds/sunset/bushes.png",
+          "y": 564,
+          "factor": 0.45
+        },
+        "ground": {
+          "file": "backgrounds/sunset/ground.png",
+          "y": 624,
+          "factor": 1.0
+        }
+      },
+      "body": {
+        "file": "backgrounds/sunset/body.png",
+        "x": 66,
+        "y": 400,
+        "thumb_y": 400
+      },
+      "clouds": [
+        "backgrounds/sunset/cloud_1.png",
+        "backgrounds/sunset/cloud_2.png",
+        "backgrounds/sunset/cloud_3.png",
+        "backgrounds/sunset/cloud_4.png",
+        "backgrounds/sunset/cloud_5.png",
+        "backgrounds/sunset/cloud_6.png",
+        "backgrounds/sunset/cloud_7.png",
+        "backgrounds/sunset/cloud_8.png"
+      ],
+      "fx": []
+    },
+    {
+      "id": "night",
+      "price": 250,
+      "sky": "backgrounds/night/sky.png",
+      "layers": {
+        "far": {
+          "file": "backgrounds/night/far.png",
+          "y": 470,
+          "factor": 0.12
+        },
+        "bushes": {
+          "file": "backgrounds/night/bushes.png",
+          "y": 564,
+          "factor": 0.45
+        },
+        "ground": {
+          "file": "backgrounds/night/ground.png",
+          "y": 624,
+          "factor": 1.0
+        }
+      },
+      "body": {
+        "file": "backgrounds/night/body.png",
+        "x": 268,
+        "y": 98,
+        "thumb_y": 372
+      },
+      "clouds": [
+        "backgrounds/night/cloud_1.png",
+        "backgrounds/night/cloud_2.png",
+        "backgrounds/night/cloud_3.png",
+        "backgrounds/night/cloud_4.png",
+        "backgrounds/night/cloud_5.png",
+        "backgrounds/night/cloud_6.png",
+        "backgrounds/night/cloud_7.png",
+        "backgrounds/night/cloud_8.png"
+      ],
+      "fx": [
+        "stars",
+        "fireflies"
+      ]
+    },
+    {
+      "id": "winter",
+      "price": 350,
+      "sky": "backgrounds/winter/sky.png",
+      "layers": {
+        "far": {
+          "file": "backgrounds/winter/far.png",
+          "y": 410,
+          "factor": 0.12
+        },
+        "bushes": {
+          "file": "backgrounds/winter/bushes.png",
+          "y": 512,
+          "factor": 0.45
+        },
+        "ground": {
+          "file": "backgrounds/winter/ground.png",
+          "y": 624,
+          "factor": 1.0
+        }
+      },
+      "body": null,
+      "clouds": null,
+      "fx": [
+        "snow"
+      ]
+    }
+  ]
 }
