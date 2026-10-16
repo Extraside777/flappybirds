@@ -6,6 +6,7 @@ import pygame
 import settings
 from audio import Music, Sounds
 from display import Display, enable_dpi_awareness
+from levels import LEVELS, level_for
 from sprites import SpriteKit, TRAIL_PALETTE, TRAIL_STYLES
 
 # -- карочє тут путь к файлікам
@@ -30,11 +31,20 @@ BIRD_SIZE = 30  # ну типу хітбокс пташки по осі x+y
 BIRD_MAX_UP = 25        # -- градуси: наскільки пташка задирає дзьоб при стрибку
 BIRD_MAX_DOWN = -75     # -- і наскільки опускає при падінні
 
+# -- швидкість труб, висота проходу і відстань між трубами залежать від рівня (src/levels.py)
 PIPE_WIDTH = 70
-PIPE_GAP = 150
-PIPE_SPEED = 3
-PIPE_SPACING_X = 250
-PIPE_GAP_Y_RANGE = (150, 450)
+PIPE_GAP_MID_RANGE = (225, 525)   # -- у яких межах по висоті може бути середина проходу
+# -- px на кадр польоту між трубами: наскільки прохід може бути вище/нижче за попередній. На 1 рівні це 300 px --
+# -- будь-де в межах; на швидких рівнях між трубами мало часу, і без цього інколи виходили непрохідні пари труб
+PIPE_SHIFT_PER_FRAME = 3.6
+
+# -- рівні
+LEVEL_EASE = 1.5            # -- як швидко світ розганяється до швидкості нового рівня (а не стрибком)
+LEVEL_BANNER_TIME = 1.8     # -- сек, скільки висить напис «РІВЕНЬ 2» посеред екрана
+LEVEL_BANNER_POP = 0.3      # -- сек, за скільки напис вискакує (росте з пружинкою)
+LEVEL_BANNER_Y = 150
+LEVEL_HUD = (WIDTH - 14, 30)   # -- поточний рівень у грі: правий край і центр по y (як лічильник монет зліва)
+LEVEL_BAR_COLORS = ((86, 180, 50), (160, 225, 100))   # -- смужка до наступного рівня: колір і блік
 
 # -- монетки
 COIN_CHANCE_GAP = 0.6       # -- шанс, що в проході труби буде монетка
@@ -83,7 +93,7 @@ PANEL_INNER_BOTTOM = 16
 
 # -- екран після смерті: напис, панель з рахунком, кнопка MENU
 GAME_OVER_Y = 190
-RESULT_PANEL = pygame.Rect(62, 226, 276, 150)
+RESULT_PANEL = pygame.Rect(62, 226, 276, 192)
 MENU_BTN_RECT = pygame.Rect(0, 0, *MENU_BTN_SIZE)
 MENU_BTN_RECT.midtop = (WIDTH // 2, RESULT_PANEL.bottom + 34)
 
@@ -91,12 +101,12 @@ MENU_BTN_RECT.midtop = (WIDTH // 2, RESULT_PANEL.bottom + 34)
 RECORDS_TITLE_Y = 70
 RECORDS_PANEL = pygame.Rect(40, 112, 320, 326)
 
-# -- магазин: вкладки ПТАШКИ | ШЛЕЙФИ | ФОНИ, під ними вікно з картками по 2 в ряд (4 картки -- рівно 2x2);
+# -- магазин: вкладки ПТАШКИ | ШЛЕЙФИ | ТРУБИ | ФОНИ, під ними вікно з картками по 2 в ряд (4 картки -- рівно 2x2);
 # -- якщо рядів більше -- гортається коліщатком
 SHOP_TITLE_Y = 80
-SHOP_TABS = {"birds": pygame.Rect(14, 106, 120, 46),     # -- висота панелі не менша за 2 рамки (2 * 22)
-             "trails": pygame.Rect(140, 106, 120, 46),
-             "backgrounds": pygame.Rect(266, 106, 120, 46)}
+SHOP_TAB_NAMES = ("birds", "trails", "pipes", "backgrounds")
+SHOP_TABS_ROW = pygame.Rect(14, 106, 372, 46)     # -- висота панелі не менша за 2 рамки (2 * 22)
+SHOP_TAB_GAP = 4
 SHOP_PANEL = pygame.Rect(14, 156, 372, 328)
 SHOP_COLS = 2
 CARD_W, CARD_H, CARD_GAP = 164, 137, 10
@@ -105,7 +115,9 @@ SHOP_SCROLL_STEP = 40
 NOT_ENOUGH_TIME = 1.6      # -- сек, скільки висить «недостатньо монет»
 CARD_PREVIEW = (124, 86)   # -- у яку рамку вписується пташка на картці
 TRAIL_PREVIEW = (70, 60)   # -- пташка на картці шлейфу менша -- позаду неї ще шлейф
-BG_THUMB = (132, 74)       # -- мініатюра фону на картці
+BG_THUMB = (132, 74)       # -- мініатюра фону на картці (на картці труб -- теж, за трубами)
+PIPE_PREVIEW = [(20, 4), (77, 56)]   # -- дві маленькі труби на картці: x від краю мініатюри, середина проходу
+PIPE_PREVIEW_GAP = 30
 TAB_DIM = 0.78             # -- неактивна вкладка темніша
 
 # -- екран налаштувань: панель з 5 рядками (підпис + перемикач або повзунок)
@@ -214,6 +226,11 @@ if "day" not in progress["owned_backgrounds"]:
 if progress["background"] not in progress["owned_backgrounds"]:
     progress["background"] = "day"
 progress["background"] = kit.set_background(progress["background"])
+if "classic" not in progress["owned_pipes"]:
+    progress["owned_pipes"].insert(0, "classic")
+if progress["pipe"] not in progress["owned_pipes"]:
+    progress["pipe"] = "classic"
+progress["pipe"] = kit.set_pipe(progress["pipe"])
 # -- свій шлейф: номери кольорів -- у межах палітри, стиль -- з відомих; редактор міняє цей словник
 custom = progress["custom_trail"]
 for key in SLOT_KEYS:
@@ -229,7 +246,8 @@ music = Music({"menu": os.path.join(MUSIC_DIR, "menu.mp3"),
 music.set_level("menu", config["menu_music"])
 music.set_level("game", config["game_music"])
 
-sfx = Sounds({name: os.path.join(SOUNDS_DIR, name + ".wav") for name in ("coin", "powerup", "shield_break")},
+sfx = Sounds({name: os.path.join(SOUNDS_DIR, name + ".wav")
+              for name in ("coin", "powerup", "shield_break", "level_up")},
              max_volume=SFX_MAX_VOLUME)
 sfx.set_level(config["sfx"])
 
@@ -252,9 +270,12 @@ MENU_BUTTONS = {
 bird_y = BIRD_START_Y
 bird_v = 0
 
-pipes = []
+pipes = []          # -- [x, y верху проходу, чи вже пролетіли, висота проходу]
 coins = []          # -- [x центру, y центру, фаза анімації, час після підбору або None, скільки дала монет]
 score = 0
+level = 0           # -- номер рівня (0 -- перший), див. src/levels.py
+level_speed = LEVELS[0]["speed"]   # -- поточна швидкість труб: плавно доганяє швидкість рівня
+level_time = LEVEL_BANNER_TIME     # -- скільки секунд тому почався рівень (для напису «РІВЕНЬ 2»)
 run_coins = 0       # -- монетки, зібрані за цю гру
 powerups = []       # -- бонуси на полі: [x центру, y центру, "shield"/"slow", фаза, час після підбору або None]
 shield = False      # -- чи є щит
@@ -292,19 +313,25 @@ over_time = 0.0     # -- скільки секунд пройшло після �
 
 # -- доп функціонал
 def add_pipe(x):
-    """нова труба + можливо монетки: у проході і між нею та попередньою трубою"""
-    gap_y = random.randint(*PIPE_GAP_Y_RANGE)
+    """нова труба (прохід -- як на поточному рівні) + можливо монетки: у проході і між нею та попередньою трубою"""
+    lv = LEVELS[level]
+    lo, hi = PIPE_GAP_MID_RANGE
     prev = pipes[-1] if pipes else None
-    pipes.append([x, gap_y, False])
+    if prev:
+        shift = round(PIPE_SHIFT_PER_FRAME * lv["spacing"] / lv["speed"])
+        prev_mid = prev[1] + prev[3] // 2
+        lo, hi = max(lo, prev_mid - shift), min(hi, prev_mid + shift)
+    gap_mid = random.randint(lo, hi)
+    pipes.append([x, gap_mid - lv["gap"] // 2, False, lv["gap"]])
 
     if random.random() < COIN_CHANCE_GAP:
-        cy = gap_y + PIPE_GAP // 2 + random.randint(-COIN_GAP_JITTER, COIN_GAP_JITTER)
+        cy = gap_mid + random.randint(-COIN_GAP_JITTER, COIN_GAP_JITTER)
         coins.append([x + PIPE_WIDTH / 2, cy, random.random() * 8, None, 1])
 
     if not prev:
         return
     mid_x = (prev[0] + x) / 2 + PIPE_WIDTH / 2
-    mid_y = (prev[1] + gap_y) / 2 + PIPE_GAP // 2 + random.randint(-30, 30)
+    mid_y = (prev[1] + prev[3] / 2 + gap_mid) / 2 + random.randint(-30, 30)
     kinds = free_powerups()
     if kinds and random.random() < POWERUP_CHANCE:
         powerups.append([mid_x, mid_y, random.choice(kinds), random.random() * 6, None])
@@ -328,10 +355,13 @@ def powerup_y(p):
 
 
 def fill_pipes():
-    """додаємо труби, поки не заповнимо все видиме полотно праворуч (на широкому екрані їх більше)"""
+    """
+    додаємо труби, поки не заповнимо все видиме полотно праворуч (на широкому екрані їх більше).
+    Відстань між трубами -- як на поточному рівні (ті, що вже є, не зсуваються)
+    """
     right = WIDTH + VIEW_X
     while not pipes or pipes[-1][0] <= right:
-        add_pipe(pipes[-1][0] + PIPE_SPACING_X if pipes else WIDTH)
+        add_pipe(pipes[-1][0] + LEVELS[level]["spacing"] if pipes else WIDTH)
 
 
 def new_pipes():
@@ -406,6 +436,60 @@ def draw_powerup_hud():
             draw_timer_bar(pygame.Rect(x + img.get_width() + 6, y - 5, 60, 10), left / BOOST_TIME[kind],
                            *BOOST_COLORS[kind])
         y += POWERUP_HUD_STEP
+
+
+def level_up():
+    """рахунок дійшов до наступного рівня: нові труби вже як на ньому, світ поступово розганяється"""
+    global level, level_time
+    level = level_for(score)
+    level_time = 0.0
+    sfx.play("level_up")
+
+
+def draw_level_hud():
+    """поточний рівень праворуч угорі, під ним -- смужка, скільки лишилось до наступного"""
+    right, y = LEVEL_HUD
+    label = kit.text("level")
+    num = str(level + 1)
+    w = label.get_width() + 6 + kit.number_width(num)
+    screen.blit(label, (right - w, y - label.get_height() // 2))
+    kit.draw_number(screen, num, right, y, align="right")
+    if level + 1 < len(LEVELS):
+        lo, hi = LEVELS[level]["score"], LEVELS[level + 1]["score"]
+        draw_timer_bar(pygame.Rect(right - w + 3, y + 22, w - 6, 8), (score - lo) / (hi - lo), *LEVEL_BAR_COLORS)
+
+
+_banner_cache = {}
+
+
+def level_banner(n):
+    """картинка «РІВЕНЬ n»: золотий напис і золоті цифри (однакової висоти -- стоять в один рядок)"""
+    key = (kit.lang, n)
+    if key not in _banner_cache:
+        label, num = kit.text("level_title"), number_image(str(n), "title")
+        gap = 14
+        img = pygame.Surface((label.get_width() + gap + num.get_width(), max(label.get_height(), num.get_height())),
+                             pygame.SRCALPHA)
+        img.blit(label, (0, (img.get_height() - label.get_height()) // 2))
+        img.blit(num, (label.get_width() + gap, (img.get_height() - num.get_height()) // 2))
+        _banner_cache[key] = img
+    return _banner_cache[key]
+
+
+def draw_level_banner():
+    """на початку рівня посеред екрана вискакує «РІВЕНЬ 2» (росте з пружинкою), трохи висить і тане"""
+    if level_time >= LEVEL_BANNER_TIME:
+        return
+    img = level_banner(level + 1)
+    k = min(1.0, level_time / LEVEL_BANNER_POP)
+    s = 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2      # -- ease-out-back: трохи більше за 1, потім 1
+    if k < 1:
+        img = pygame.transform.smoothscale(img, (max(1, int(img.get_width() * s)), max(1, int(img.get_height() * s))))
+    alpha = min(1.0, (LEVEL_BANNER_TIME - level_time) / 0.4)
+    if alpha < 1:
+        img = img.copy()
+        img.set_alpha(int(255 * alpha))
+    blit_center(img, WIDTH // 2, LEVEL_BANNER_Y)
 
 
 def draw_timer_bar(bar, value, color, shine):
@@ -680,8 +764,9 @@ def draw_result(slide):
     panel = RESULT_PANEL.move(0, slide)
     screen.blit(kit.panel.render(panel.width, panel.height), panel)
 
-    y_score, y_best, y_coins = panel_rows(panel, 3)
+    y_score, y_level, y_best, y_coins = panel_rows(panel, 4)
     draw_row(panel, y_score, "score", score)
+    draw_row(panel, y_level, "level", level + 1)
     draw_row(panel, y_best, "best", progress["best"])
     draw_row(panel, y_coins, "coins", f"+{run_coins}", icon=kit.coin_icon)
 
@@ -712,9 +797,24 @@ def draw_records():
 SHOP = {
     "birds": {"items": kit.skins, "pick": "skin", "owned": "owned", "set": kit.set_skin},
     "trails": {"items": kit.trails, "pick": "trail", "owned": "owned_trails", "set": kit.set_trail},
+    "pipes": {"items": kit.pipes, "pick": "pipe", "owned": "owned_pipes", "set": kit.set_pipe},
     "backgrounds": {"items": kit.backgrounds, "pick": "background", "owned": "owned_backgrounds",
                     "set": kit.set_background},
 }
+
+
+def shop_tabs():
+    """
+    прямокутники вкладок в один ряд: написи різної довжини (і на кожній мові свої),
+    тому кожна вкладка ширша за свій напис на однаковий запас
+    """
+    widths = [kit.text("tab_" + name).get_width() for name in SHOP_TAB_NAMES]
+    pad = (SHOP_TABS_ROW.width - SHOP_TAB_GAP * (len(widths) - 1) - sum(widths)) / len(widths)
+    rects, x = {}, SHOP_TABS_ROW.x
+    for name, w in zip(SHOP_TAB_NAMES, widths):
+        rects[name] = pygame.Rect(round(x), SHOP_TABS_ROW.y, round(x + w + pad) - round(x), SHOP_TABS_ROW.height)
+        x += w + pad + SHOP_TAB_GAP
+    return rects
 
 
 def shop_cards():
@@ -745,7 +845,7 @@ def shop_click(x, y):
     """
     global not_enough, shop_tab, shop_scroll
 
-    for name, rect in SHOP_TABS.items():
+    for name, rect in shop_tabs().items():
         if rect.collidepoint(x, y):
             shop_tab, shop_scroll, not_enough = name, 0, 0.0
             return
@@ -815,6 +915,24 @@ def draw_trail_preview(trail, rect):
     blit_center(img, bx, wave_y(t_total))
 
 
+def draw_pipe_preview(pipe, rect):
+    """
+    картка труб: мініатюра обраного фону, на ній дві маленькі труби, як у грі --
+    одна росте з землі, друга звисає з неба (другі половинки пар -- за краями мініатюри)
+    """
+    img = scenery.thumbnail(progress["background"], BG_THUMB)
+    box = img.get_rect(center=(rect.centerx, rect.y + 48))
+    pygame.draw.rect(screen, COLOR_OUTLINE, box.inflate(6, 6), border_radius=5)
+    screen.blit(img, box)
+    ground = box.y + round((GROUND_Y - scenery.THUMB_TOP) * box.height / scenery.THUMB_H)
+    screen.set_clip(pygame.Rect(box.x, box.y, box.width, ground - box.y).clip(shop_view()))
+    mini = pipe.mini
+    for x, mid in PIPE_PREVIEW:
+        mini.draw(screen, box.x + x, mini.cap_w, box.y + mid - PIPE_PREVIEW_GAP // 2, PIPE_PREVIEW_GAP, ground,
+                  top=box.y)
+    screen.set_clip(shop_view())
+
+
 def draw_card(item, rect, mouse_pos):
     tab = SHOP[shop_tab]
     selected = item.id == progress[tab["pick"]]
@@ -832,6 +950,8 @@ def draw_card(item, rect, mouse_pos):
         blit_center(card_preview(item, i), rect.centerx, rect.y + 50)
     elif shop_tab == "trails":
         draw_trail_preview(item, rect)
+    elif shop_tab == "pipes":
+        draw_pipe_preview(item, rect)
     else:
         img = scenery.thumbnail(item.id, BG_THUMB)
         box = img.get_rect(center=(rect.centerx, rect.y + 48))
@@ -851,8 +971,8 @@ def draw_card(item, rect, mouse_pos):
 
 
 def draw_tabs(mouse_pos):
-    """вкладки ПТАШКИ | ШЛЕЙФИ | ФОНИ: активна -- з зеленою рамкою, інші -- трохи темніші"""
-    for name, rect in SHOP_TABS.items():
+    """вкладки ПТАШКИ | ШЛЕЙФИ | ТРУБИ | ФОНИ: активна -- з зеленою рамкою, інші -- трохи темніші"""
+    for name, rect in shop_tabs().items():
         img = kit.panel.render(rect.width, rect.height)
         active = name == shop_tab
         if not active:
@@ -924,7 +1044,7 @@ def edit_bird_y(t):
 def update_edit_preview():
     """точки шлейфу в перегляді: як у грі -- їдуть разом зі світом і згасають"""
     for p in edit_pts:
-        p[0] -= PIPE_SPEED
+        p[0] -= LEVELS[0]["speed"]
         p[2] += dts
     edit_pts[:] = [p for p in edit_pts if p[2] < TRAIL_LIFE]
     edit_pts.append([EDIT_BIRD_X - 6, edit_bird_y(t_total), 0.0, random.random()])
@@ -1003,11 +1123,14 @@ def editor_click(x, y):
 
 def reset_game():
     global bird_y, bird_v, score, over, start, run_coins, new_record, run_saved
-    global shield, grace, speed_k
+    global shield, grace, speed_k, level, level_speed, level_time
 
     bird_y = BIRD_START_Y
     bird_v = 0
     score = 0
+    level = 0
+    level_speed = LEVELS[0]["speed"]
+    level_time = 0.0       # -- на старті теж показуємо «РІВЕНЬ 1»
     run_coins = 0
     new_record = False
     run_saved = False
@@ -1022,7 +1145,7 @@ def reset_game():
     trail_pts.clear()
 
     new_pipes()
-    scenery.update(0, PIPE_SPEED * FPS, snap=True)   # -- фон їде з тією ж швидкістю, що й труби
+    scenery.update(0, level_speed * FPS, snap=True)   # -- фон їде з тією ж швидкістю, що й труби
 
 
 def go_to_menu():
@@ -1168,13 +1291,16 @@ while run:
     # -- сповільнення: швидкість світу плавно йде до потрібної (гравітація і стрибок не змінюються)
     slowed = start and not over and boost["slow"] > 0
     speed_k += ((SLOW_FACTOR if slowed else 1.0) - speed_k) * min(1.0, 5.0 * dts)
-    speed = PIPE_SPEED * speed_k
+    # -- на новому рівні світ розганяється поступово
+    level_speed += (LEVELS[level]["speed"] - level_speed) * min(1.0, LEVEL_EASE * dts)
+    speed = level_speed * speed_k
 
     # -- фізика
     if start and not over:
         for kind in boost:
             boost[kind] = max(0.0, boost[kind] - dts)
         grace = max(0.0, grace - dts)
+        level_time += dts
 
         bird_v += GRAVITY
         bird_y += bird_v
@@ -1188,8 +1314,11 @@ while run:
                 score += 1
 
             if BIRD_START_X + BIRD_SIZE > pipe[0] and BIRD_START_X < pipe[0] + PIPE_WIDTH:
-                if bird_y < pipe[1] or bird_y + BIRD_SIZE > pipe[1] + PIPE_GAP:
+                if bird_y < pipe[1] or bird_y + BIRD_SIZE > pipe[1] + pipe[3]:
                     hit()
+
+        if level_for(score) > level:
+            level_up()
 
         # -- труба зникає, коли повністю виїхала за лівий край полотна
         pipes[:] = [p for p in pipes if p[0] > -PIPE_WIDTH - VIEW_X]
@@ -1326,7 +1455,7 @@ while run:
         scenery.draw_back(view)
 
         for pipe in pipes:
-            kit.pipe.draw(view, int(pipe[0]) + VIEW_X, PIPE_WIDTH, pipe[1], PIPE_GAP, GROUND_Y)
+            kit.pipe.draw(view, int(pipe[0]) + VIEW_X, PIPE_WIDTH, pipe[1], pipe[3], GROUND_Y)
 
         draw_coins()
         draw_powerups()
@@ -1339,6 +1468,9 @@ while run:
         draw_text(str(score), title_font, WIDTH // 2, 50)
         draw_counter(kit.coin_icon, run_coins, 14, 30)
         draw_powerup_hud()
+        draw_level_hud()
+        if not over:
+            draw_level_banner()
 
         if over:
             # -- напис, панель і кнопка виїжджають зверху (ease-out)

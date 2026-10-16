@@ -22,6 +22,8 @@ PROGRESS_DEFAULTS = {
     "owned_trails": ["none"],   # -- куплені шлейфи
     "background": "day",        # -- який фон
     "owned_backgrounds": ["day"],
+    "pipe": "classic",          # -- скін труб
+    "owned_pipes": ["classic"],
     # -- свій шлейф: кольори з палітри (номери, src/sprites.py TRAIL_PALETTE), стиль, товщина 0..1
     "custom_trail": {"c1": 9, "c2": 6, "style": "glow", "width": 0.5},
 }

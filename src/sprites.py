@@ -411,17 +411,30 @@ class SpriteButton:
 
 
 class PipeArt:
-    """Труба зі спрайтів: тіло повторюється по вертикалі, зверху/знизу капелюшок."""
+    """
+    Труба зі спрайтів (скін з магазину): тіло повторюється по вертикалі, зверху/знизу капелюшок.
+    scale -- зменшена копія для картки магазину: 1 / art_px -- кожен художній піксель стає одним, тому чітко
+    """
 
-    def __init__(self, base_dir, spec):
-        self.body = _load(base_dir, spec["body"])
-        self.neck = _load(base_dir, spec["neck"])
-        self.cap = _load(base_dir, spec["cap"])
+    def __init__(self, base_dir, spec, scale=1):
+        self.id = spec["id"]
+        self.price = spec["price"]
+
+        def img(key):
+            im = _load(base_dir, spec[key])
+            if scale == 1:
+                return im
+            return pygame.transform.scale(im, (round(im.get_width() * scale), round(im.get_height() * scale)))
+
+        self.body = img("body")
+        self.neck = img("neck")
+        self.cap = img("cap")
         self.cap_flip = pygame.transform.flip(self.cap, False, True)
         self.neck_flip = pygame.transform.flip(self.neck, False, True)
-        self.body_w = spec["body_w"]
-        self.cap_w = spec["cap_w"]
-        self.cap_h = spec["cap_h"]
+        self.body_w = round(spec["body_w"] * scale)
+        self.cap_w = round(spec["cap_w"] * scale)
+        self.cap_h = round(spec["cap_h"] * scale)
+        self.mini = PipeArt(base_dir, spec, 1 / spec["art_px"]) if scale == 1 else self
 
     def _column(self, surf, x, y0, y1):
         """тіло труби від y0 до y1"""
@@ -432,13 +445,16 @@ class PipeArt:
             surf.blit(self.body, (x, y), (0, 0, self.body_w, h))
             y += h
 
-    def draw(self, surf, x, width, gap_y, gap, bottom):
-        """x, width -- хітбокс труби; gap_y..gap_y+gap -- прохід; bottom -- де закінчується нижня труба"""
+    def draw(self, surf, x, width, gap_y, gap, bottom, top=0):
+        """
+        x, width -- хітбокс труби; gap_y..gap_y+gap -- прохід; bottom -- де закінчується нижня труба,
+        top -- звідки звисає верхня
+        """
         cx = x + (width - self.cap_w) // 2
         bx = x + (width - self.body_w) // 2
         # -- верхня труба (капелюшок знизу)
         top_cap = gap_y - self.cap_h
-        self._column(surf, bx, 0, top_cap)
+        self._column(surf, bx, top, top_cap)
         surf.blit(self.neck_flip, (bx, top_cap - self.neck.get_height()))
         surf.blit(self.cap_flip, (cx, top_cap))
         # -- нижня труба
@@ -773,10 +789,12 @@ class SpriteKit:
             for lang, items in ex["texts"].items()
         }
         self.lang_names = {lang: _load(base_dir, f) for lang, f in ex["lang_names"].items()}
-        # -- цифри: "dark" -- на кремовій панелі, "light" -- білі з контуром, "big" -- для рекорду
+        # -- цифри: "dark" -- на кремовій панелі, "light" -- білі з контуром, "big" -- для рекорду,
+        # -- "title" -- золоті для напису «РІВЕНЬ 2»
         self.digits = {
             name: {c: _load(base_dir, f) for c, f in ex[key].items()}
-            for name, key in (("dark", "digits"), ("light", "digits_light"), ("big", "digits_big"))
+            for name, key in (("dark", "digits"), ("light", "digits_light"), ("big", "digits_big"),
+                              ("title", "digits_title"))
         }
         self.trophy_small = _load(base_dir, ex["trophy"]["small"])
         self.trophy_big = _load(base_dir, ex["trophy"]["big"])
@@ -797,7 +815,10 @@ class SpriteKit:
         face = GearFace(_load(base_dir, st["base"]), gear, g["ox"], g["oy"])
         self.settings = SpriteButton(face, st["x"], st["y"], bob_amp=0.0, dark=press_dark)
 
-        self.pipe = PipeArt(base_dir, ex["pipe"])
+        # -- скіни труб у порядку магазину; self.pipe -- ті, що в грі
+        self.pipes = [PipeArt(base_dir, spec) for spec in ex["pipes"]]
+        self.pipe_by_id = {p.id: p for p in self.pipes}
+        self.pipe = self.pipes[0]
         # -- скіни пташок у порядку магазину; self.bird -- та, якою граємо
         self.skins = [BirdArt(base_dir, spec) for spec in ex["skins"]]
         self.skin_by_id = {b.id: b for b in self.skins}
@@ -844,6 +865,10 @@ class SpriteKit:
 
     def set_background(self, bg_id):
         return self.scenery.set_theme(bg_id)
+
+    def set_pipe(self, pipe_id):
+        self.pipe = self.pipe_by_id.get(pipe_id, self.pipes[0])
+        return self.pipe.id
 
     def text(self, key):
         return self.texts[self.lang][key]

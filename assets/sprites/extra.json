@@ -152,6 +152,7 @@
       "not_enough": "text/en/not_enough.png",
       "tab_birds": "text/en/tab_birds.png",
       "tab_trails": "text/en/tab_trails.png",
+      "tab_pipes": "text/en/tab_pipes.png",
       "tab_backgrounds": "text/en/tab_backgrounds.png",
       "custom_title": "text/en/custom_title.png",
       "edit": "text/en/edit.png",
@@ -162,7 +163,9 @@
       "style_glow": "text/en/style_glow.png",
       "style_bubbles": "text/en/style_bubbles.png",
       "style_pixels": "text/en/style_pixels.png",
-      "style_sparks": "text/en/style_sparks.png"
+      "style_sparks": "text/en/style_sparks.png",
+      "level": "text/en/level.png",
+      "level_title": "text/en/level_title.png"
     },
     "uk": {
       "game_over": "text/uk/game_over.png",
@@ -186,6 +189,7 @@
       "not_enough": "text/uk/not_enough.png",
       "tab_birds": "text/uk/tab_birds.png",
       "tab_trails": "text/uk/tab_trails.png",
+      "tab_pipes": "text/uk/tab_pipes.png",
       "tab_backgrounds": "text/uk/tab_backgrounds.png",
       "custom_title": "text/uk/custom_title.png",
       "edit": "text/uk/edit.png",
@@ -196,7 +200,9 @@
       "style_glow": "text/uk/style_glow.png",
       "style_bubbles": "text/uk/style_bubbles.png",
       "style_pixels": "text/uk/style_pixels.png",
-      "style_sparks": "text/uk/style_sparks.png"
+      "style_sparks": "text/uk/style_sparks.png",
+      "level": "text/uk/level.png",
+      "level_title": "text/uk/level_title.png"
     }
   },
   "lang_names": {
@@ -248,14 +254,67 @@
     "×": "text/digits_big/digit_x.png",
     "+": "text/digits_big/digit_plus.png"
   },
-  "pipe": {
-    "body": "pipe/pipe_body.png",
-    "cap": "pipe/pipe_cap.png",
-    "neck": "pipe/pipe_neck.png",
-    "body_w": 62,
-    "cap_w": 70,
-    "cap_h": 26
+  "digits_title": {
+    "0": "text/digits_title/digit_0.png",
+    "1": "text/digits_title/digit_1.png",
+    "2": "text/digits_title/digit_2.png",
+    "3": "text/digits_title/digit_3.png",
+    "4": "text/digits_title/digit_4.png",
+    "5": "text/digits_title/digit_5.png",
+    "6": "text/digits_title/digit_6.png",
+    "7": "text/digits_title/digit_7.png",
+    "8": "text/digits_title/digit_8.png",
+    "9": "text/digits_title/digit_9.png",
+    "%": "text/digits_title/digit_percent.png",
+    "×": "text/digits_title/digit_x.png",
+    "+": "text/digits_title/digit_plus.png"
   },
+  "pipes": [
+    {
+      "id": "classic",
+      "price": 0,
+      "body": "pipe/pipe_body.png",
+      "cap": "pipe/pipe_cap.png",
+      "neck": "pipe/pipe_neck.png",
+      "body_w": 62,
+      "cap_w": 70,
+      "cap_h": 26,
+      "art_px": 2
+    },
+    {
+      "id": "ice",
+      "price": 50,
+      "body": "pipe/ice/body.png",
+      "cap": "pipe/ice/cap.png",
+      "neck": "pipe/ice/neck.png",
+      "body_w": 62,
+      "cap_w": 70,
+      "cap_h": 26,
+      "art_px": 2
+    },
+    {
+      "id": "candy",
+      "price": 100,
+      "body": "pipe/candy/body.png",
+      "cap": "pipe/candy/cap.png",
+      "neck": "pipe/candy/neck.png",
+      "body_w": 62,
+      "cap_w": 70,
+      "cap_h": 26,
+      "art_px": 2
+    },
+    {
+      "id": "gold",
+      "price": 250,
+      "body": "pipe/gold/body.png",
+      "cap": "pipe/gold/cap.png",
+      "neck": "pipe/gold/neck.png",
+      "body_w": 62,
+      "cap_w": 70,
+      "cap_h": 26,
+      "art_px": 2
+    }
+  ],
   "bird": {
     "file": "bird/bird_sheet.png",
     "frames": 4,
