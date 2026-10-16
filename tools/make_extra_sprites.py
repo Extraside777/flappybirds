@@ -20,6 +20,8 @@
   * малює ще дві пташки для магазину піксель-артом: ніндзя і фенікс (див. PAINTED)
   * малює кнопку ГОТОВО/DONE (вихід з редактора свого шлейфу)
   * малює фони для магазину: захід сонця, ніч і зиму (див. BACKGROUNDS)
+  * малює скіни труб для магазину: крижана, льодяник і золота (див. PIPE_SKINS)
+  * малює золотий напис «РІВЕНЬ 2» для зміни рівня і генерує звук нового рівня
   * пише assets/sprites/extra.json -- його читає гра
 
 Кирилиці в assets/fonts/OutlineStyleRegular.ttf немає, тому букви малюються шрифтом
@@ -375,37 +377,41 @@ TEXTS = {
            "score": "SCORE", "best": "BEST", "new_record": "NEW RECORD!",
            "coins": "COINS", "games": "GAMES PLAYED", "records": "RECORDS",
            "shop_title": "SHOP", "select": "SELECT", "selected": "SELECTED", "not_enough": "NOT ENOUGH COINS",
-           "tab_birds": "BIRDS", "tab_trails": "TRAILS", "tab_backgrounds": "WORLDS",
+           "tab_birds": "BIRDS", "tab_trails": "TRAILS", "tab_pipes": "PIPES", "tab_backgrounds": "WORLDS",
            "custom_title": "CUSTOM TRAIL", "edit": "EDIT", "colors": "COLORS", "style": "STYLE", "width": "WIDTH",
            "style_ribbon": "RIBBON", "style_glow": "GLOW", "style_bubbles": "BUBBLES", "style_pixels": "PIXELS",
-           "style_sparks": "SPARKS"},
+           "style_sparks": "SPARKS", "level": "LEVEL", "level_title": "LEVEL"},
     "uk": {"game_over": "КІНЕЦЬ ГРИ", "settings": "НАЛАШТУВАННЯ", "language": "МОВА",
            "menu_music": "МУЗИКА В МЕНЮ", "game_music": "МУЗИКА В ГРІ", "sounds": "ЗВУКИ",
            "window_size": "РОЗМІР ВІКНА", "auto": "АВТО", "fullscreen": "ПОВНИЙ ЕКРАН",
            "score": "РАХУНОК", "best": "РЕКОРД", "new_record": "НОВИЙ РЕКОРД!",
            "coins": "МОНЕТИ", "games": "ЗІГРАНО ІГОР", "records": "РЕКОРДИ",
            "shop_title": "МАГАЗИН", "select": "ОБРАТИ", "selected": "ОБРАНО", "not_enough": "НЕДОСТАТНЬО МОНЕТ",
-           "tab_birds": "ПТАШКИ", "tab_trails": "ШЛЕЙФИ", "tab_backgrounds": "ФОНИ",
+           "tab_birds": "ПТАШКИ", "tab_trails": "ШЛЕЙФИ", "tab_pipes": "ТРУБИ", "tab_backgrounds": "ФОНИ",
            "custom_title": "СВІЙ ШЛЕЙФ", "edit": "ЗМІНИТИ", "colors": "КОЛЬОРИ", "style": "СТИЛЬ", "width": "ТОВЩИНА",
            "style_ribbon": "СТРІЧКА", "style_glow": "СЯЙВО", "style_bubbles": "БУЛЬБАШКИ", "style_pixels": "ПІКСЕЛІ",
-           "style_sparks": "ІСКРИ"},
+           "style_sparks": "ІСКРИ", "level": "РІВЕНЬ", "level_title": "РІВЕНЬ"},
 }
 BIG = {"game_over", "settings", "records", "shop_title", "custom_title"}
 CARD = {"select", "selected", "edit"}     # -- написи на картці пташки в магазині: дрібніші
 GREEN_CARD = {"selected", "edit"}         # -- «обрано» і «змінити» (картка обраного свого шлейфу) -- зелені
-TAB_TEXT_W = 100          # -- три вкладки магазину по 120 px: напис з запасом під рамку
-# -- розмір літер вкладок: один на всі вкладки мови, найбільший, з яким кожна влазить
+TABS_TEXT_W = 312         # -- чотири вкладки магазину в ряд (372 px): усі написи разом, із запасом під рамки
+TAB_TRACK = 1
+# -- розмір літер вкладок: один на всі вкладки мови, найбільший, з яким усі разом влазять у ряд
+# -- (гра робить кожну вкладку ширшою за її напис на однаковий запас)
 TAB_CAPS = {}
 for lang, items in TEXTS.items():
     cap = 17
-    while cap > 10 and max(pixel_text(t, cap, shade=0.6, fixed=True).shape[1]
-                           for k, t in items.items() if k.startswith("tab_")) > TAB_TEXT_W:
+    while cap > 10 and sum(pixel_text(t, cap, shade=0.6, fixed=True, track=TAB_TRACK).shape[1]
+                           for k, t in items.items() if k.startswith("tab_")) > TABS_TEXT_W:
         cap -= 1
     TAB_CAPS[lang] = cap
 GREEN = (150, 230, 90)
 GREEN_SHADE = (80, 180, 60)
 GOLD = (255, 214, 60)
 GOLD_SHADE = (240, 150, 30)
+# -- великий золотий напис «РІВЕНЬ 2» посеред екрана, коли рівень змінюється (цифри -- digits_title, той самий стиль)
+LEVEL_TITLE = dict(cap=30, outline=3, shade=0.7, drop=3, fill=GOLD, shade_color=GOLD_SHADE, fixed=True)
 extra["texts"] = {}
 for lang, items in TEXTS.items():
     extra["texts"][lang] = {}
@@ -417,7 +423,7 @@ for lang, items in TEXTS.items():
                 cap -= 1
                 spr = pixel_text(text, cap, outline=3, shade=0.7, drop=3)
         elif key.startswith("tab_"):
-            spr = pixel_text(text, TAB_CAPS[lang], shade=0.6, fixed=True)
+            spr = pixel_text(text, TAB_CAPS[lang], shade=0.6, fixed=True, track=TAB_TRACK)
         elif key in CARD:
             green = key in GREEN_CARD
             cap = 14
@@ -429,6 +435,8 @@ for lang, items in TEXTS.items():
                 cap -= 1
         elif key == "new_record":
             spr = pixel_text(text, 17, shade=0.55, fill=GOLD, shade_color=GOLD_SHADE, fixed=True)
+        elif key == "level_title":
+            spr = pixel_text(text, **LEVEL_TITLE)
         else:
             spr = pixel_text(text, 17, shade=0.6, fixed=True)
         extra["texts"][lang][key] = save(f"{key}.png", spr, f"text/{lang}")
@@ -454,6 +462,11 @@ extra["digits_light"] = {
 extra["digits_big"] = {
     c: save(f"digit_{name}.png", pixel_text(c, 40, outline=3, shade=0.7, drop=3, track=0, fixed=True),
             "text/digits_big")
+    for c, name in DIGIT_CHARS
+}
+# золоті цифри для напису «РІВЕНЬ 2»
+extra["digits_title"] = {
+    c: save(f"digit_{name}.png", pixel_text(c, **{**LEVEL_TITLE, "track": 0}), "text/digits_title")
     for c, name in DIGIT_CHARS
 }
 
@@ -498,19 +511,19 @@ def pipe_profile(w):
     return ["o"] + cols + ["o"]
 
 
-def paint(rows):
+def paint(rows, color):
+    """сітка ключів кольорів -> картинка; color(x, y, ключ) -> rgb (скіни труб фарбують по-своєму)"""
     h, w = len(rows), len(rows[0])
     a = np.zeros((h, w, 4), np.uint8)
     for y, row in enumerate(rows):
         for x, c in enumerate(row):
             if c != ".":
-                a[y, x] = (*G[c], 255)
+                a[y, x] = (*color(x, y, c), 255)
     return a
 
 
 BODY_W, CAP_W, CAP_H = 31, 35, 13
 body_row = pipe_profile(BODY_W)
-body = paint([body_row] * 4)                         # 4 рядки -- тайл, гра повторює його по вертикалі
 cap_row = pipe_profile(CAP_W)
 cap_rows = [["o"] * CAP_W]
 for y in range(CAP_H - 2):
@@ -521,17 +534,78 @@ for y in range(CAP_H - 2):
         r = ["o"] + ["d" if c in "hlm" else "x" for c in r[1:-1]] + ["o"]
     cap_rows.append(r)
 cap_rows.append(["o"] * CAP_W)
-cap = paint(cap_rows)
 # під капелюшком на тілі -- смужка тіні
 shade_row = ["o"] + ["x" if c != "o" else c for c in body_row[1:-1]] + ["o"]
-neck = paint([shade_row] * 2)
 
-extra["pipe"] = {
-    "body": save("pipe_body.png", upscale(body, PIPE_SCALE), "pipe"),
-    "cap": save("pipe_cap.png", upscale(cap, PIPE_SCALE), "pipe"),
-    "neck": save("pipe_neck.png", upscale(neck, PIPE_SCALE), "pipe"),
-    "body_w": BODY_W * PIPE_SCALE, "cap_w": CAP_W * PIPE_SCALE, "cap_h": CAP_H * PIPE_SCALE,
-}
+# -- скіни труб для магазину: та сама форма, свої кольори і візерунок.
+# -- Кожен скін -- палітра з тими ж ключами, що й G (h -- найсвітліший ... x -- найтемніший, o -- контур)
+ICE = {"h": (244, 253, 255), "l": (190, 236, 252), "m": (132, 204, 242), "d": (84, 152, 214),
+       "x": (52, 104, 178), "o": OUTLINE}
+CANDY_RED = {"h": (255, 176, 176), "l": (255, 104, 104), "m": (232, 44, 56), "d": (184, 22, 44),
+             "x": (132, 12, 38), "o": OUTLINE}
+CANDY_WHITE = {"h": (255, 255, 255), "l": (255, 250, 248), "m": (252, 236, 236), "d": (224, 198, 208),
+               "x": (184, 150, 170), "o": OUTLINE}
+GOLD_PIPE = {"h": (255, 250, 214), "l": (255, 228, 124), "m": (246, 190, 50), "d": (208, 138, 26),
+             "x": (150, 88, 22), "o": OUTLINE}
+LIGHTER = {"h": "h", "l": "h", "m": "h", "d": "l", "x": "d", "o": "o"}
+
+
+def ice_color(part):
+    def color(x, y, c):
+        # -- на тілі -- косі відблиски льоду і рідкі іскорки в тіні
+        if part == "body" and c == "m" and (x + 2 * y) % 16 in (0, 1):
+            return ICE["l"]
+        if part == "body" and c == "d" and (x * 7 + y * 5) % 19 == 0:
+            return ICE["h"]
+        return ICE[c]
+    return color
+
+
+def candy_color(part):
+    def color(x, y, c):
+        # -- тіло -- як льодяник: косі червоні і білі смуги (тайл 8 рядків -- смуги без шва); капелюшок червоний
+        if part == "cap":
+            return CANDY_RED[c]
+        return (CANDY_RED if (x + y) // 4 % 2 else CANDY_WHITE)[c]
+    return color
+
+
+def gold_color(part):
+    def color(x, y, c):
+        # -- тіло зі світлим обідком через кожні 20 рядків, на капелюшку -- заклепки
+        if part == "body" and y == 16:
+            return GOLD_PIPE[LIGHTER[c]]
+        if part == "body" and y == 17 and c != "o":
+            return GOLD_PIPE["x"]
+        if part == "cap" and 3 <= x <= CAP_W - 4 and x % 5 == 2:
+            if y == 5:
+                return GOLD_PIPE["h"]
+            if y == 6:
+                return GOLD_PIPE["x"]
+        return GOLD_PIPE[c]
+    return color
+
+
+# -- (id, ціна, висота тайла тіла, як фарбувати); порядок = порядок у магазині, перша -- звичайна, є в усіх
+PIPE_SKINS = [
+    ("classic", 0, 4, lambda part: lambda x, y, c: G[c]),
+    ("ice", 50, 16, ice_color),
+    ("candy", 100, 8, candy_color),
+    ("gold", 250, 20, gold_color),
+]
+extra["pipes"] = []
+for pid, price, tile_h, colors in PIPE_SKINS:
+    folder = "pipe" if pid == "classic" else f"pipe/{pid}"
+    prefix = "pipe_" if pid == "classic" else ""
+    extra["pipes"].append({
+        "id": pid, "price": price,
+        # -- тіло -- тайл, гра повторює його по вертикалі
+        "body": save(f"{prefix}body.png", upscale(paint([body_row] * tile_h, colors("body")), PIPE_SCALE), folder),
+        "cap": save(f"{prefix}cap.png", upscale(paint(cap_rows, colors("cap")), PIPE_SCALE), folder),
+        "neck": save(f"{prefix}neck.png", upscale(paint([shade_row] * 2, colors("neck")), PIPE_SCALE), folder),
+        "body_w": BODY_W * PIPE_SCALE, "cap_w": CAP_W * PIPE_SCALE, "cap_h": CAP_H * PIPE_SCALE,
+        "art_px": PIPE_SCALE,
+    })
 
 # --------------------------------------------------------------------------
 # 6. пташка (3 кадри помаху)
@@ -1239,6 +1313,10 @@ write_sound(os.path.join(SOUNDS_OUT, "powerup.wav"),
             [(note(1046.5, 30), 0.055), (note(1318.5, 30), 0.055), (note(1568.0, 30), 0.055),
              (note(2093.0, 7), 0.28)])
 write_sound(os.path.join(SOUNDS_OUT, "shield_break.wav"), [(pop, 0.32)])
+# -- новий рівень: маленькі фанфари (соль-до-мі-соль, остання нота довга)
+write_sound(os.path.join(SOUNDS_OUT, "level_up.wav"),
+            [(note(784.0, 14), 0.09), (note(1046.5, 14), 0.09), (note(1318.5, 14), 0.09),
+             (note(1568.0, 4), 0.5)])
 
 
 # --------------------------------------------------------------------------
