@@ -1,0 +1,11 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.cxx/
+.kotlin/
+# -- ключ підпису і паролі до нього -- тільки локально
+keystore.properties
+*.jks

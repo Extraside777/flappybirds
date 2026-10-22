@@ -1,0 +1,71 @@
+plugins {
+    id 'com.android.application'
+}
+
+// -- ключ для підпису release-APK: android/keystore.properties (в git не потрапляє).
+// -- Якщо файлу нема -- release підписується debug-ключем, щоб APK все одно ставився на телефон
+def keystoreFile = rootProject.file('keystore.properties')
+def keystore = new Properties()
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystore.load(it) }
+}
+
+android {
+    namespace 'com.extraside.flappybird'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.extraside.flappybird'
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile rootProject.file(keystore['storeFile'])
+                storePassword keystore['storePassword']
+                keyAlias keystore['keyAlias']
+                keyPassword keystore['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig keystoreFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    // -- спрайти, музика, звуки і шрифт беруться прямо з assets/ гри на пайтоні -- одне джерело для обох версій
+    sourceSets {
+        main {
+            assets.srcDirs = ['../../assets']
+        }
+    }
+    androidResources {
+        // -- стандартний список + assets/images (вихідні картинки для tools/, у грі не потрібні)
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!images'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    // -- тест-прогін на комп'ютері (Robolectric): гра малює всі екрани в app/build/screens/*.png
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}
