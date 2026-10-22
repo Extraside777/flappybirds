@@ -1,0 +1,7 @@
+﻿java.exe : Error: Unable to access jarfile neoforge-21.1.259-installer.jar
+At line:4 char:1
++ & "$jdk\bin\java.exe" -jar neoforge-21.1.259-installer.jar --install- ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Unable t...9-installer.jar:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
