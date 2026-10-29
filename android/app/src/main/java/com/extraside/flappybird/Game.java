@@ -21,8 +21,10 @@ import java.util.Random;
 
 /**
  * Уся гра -- порт src/main.py. Координати -- як у пайтоні: ігрове поле 400x700, VIEW_X (ox) -- скільки
- * полотна є ліворуч від поля. На телефоні екран вищий за поле, тому над полем ще oy px неба, а під ним --
- * землі; Canvas у render() уже зсунутий так, що (0, 0) -- лівий верхній кут поля.
+ * полотна є ліворуч від поля. На телефоні екран вищий за поле, тому поле стоїть посередині, а над ним і під ним
+ * ще по oy px; Canvas у render() уже зсунутий так, що (0, 0) -- лівий верхній кут поля.
+ * Меню і панелі -- по центру екрана, а те, що має бути біля країв, зсувається до них: земля (floorY) --
+ * донизу, HUD (hudTop, hudLeft, hudRight) -- догори і вбоки. Так на будь-якому екрані гра виглядає однаково.
  * Один виклик step() -- один кадр пайтон-версії (1/60 сек).
  */
 final class Game {
@@ -241,8 +243,10 @@ final class Game {
     private final LinkedHashMap<String, Box> menuButtons = new LinkedHashMap<>();
     private final HashMap<String, Rect> previewBoxes = new HashMap<>();
 
-    // -- розмір полотна
+    // -- розмір полотна; floorY -- де земля (низ екрана), hud* -- на скільки зсунути HUD до країв екрана
     int viewW = WIDTH, viewH = HEIGHT, ox = 0, oy = 0;
+    int floorY, hudTop, hudLeft, hudRight;
+    Box settingsBtn = SETTINGS_BTN;
 
     // -- стан гри
     float birdY = BIRD_START_Y;
@@ -342,6 +346,7 @@ final class Game {
         }
         kit.customTrail.config = custom;
         groundY = kit.groundY;
+        floorY = groundY;
 
         Map<String, String> tracks = new HashMap<>();
         tracks.put("menu", "music/menu.mp3");
@@ -369,7 +374,7 @@ final class Game {
         menuButtons.put("play", PLAY_BTN);
         menuButtons.put("shop", SHOP_BTN);
         menuButtons.put("record", RECORD_BTN);
-        menuButtons.put("settings", SETTINGS_BTN);
+        menuButtons.put("settings", settingsBtn);
 
         newPipes();
     }
@@ -393,13 +398,24 @@ final class Game {
         return lo + rnd.nextInt(hi - lo + 1);
     }
 
-    /** розмір полотна змінився (повернули екран, інший телефон) */
-    void setView(int viewW, int viewH, int ox, int oy) {
+    /**
+     * розмір полотна змінився (повернули екран, інший телефон). safeTop -- скільки px згори займає виріз камери:
+     * HUD опускається нижче нього
+     */
+    void setView(int viewW, int viewH, int ox, int oy, int safeTop) {
         this.viewW = viewW;
         this.viewH = viewH;
         this.ox = ox;
         this.oy = oy;
-        scenery.setView(viewW, ox, oy, viewH - HEIGHT - oy);
+        // -- фон з землею -- донизу екрана, тож місця для польоту більше і зверху, і знизу (порівну)
+        int below = viewH - HEIGHT - oy;
+        floorY = groundY + below;
+        hudTop = safeTop - oy;
+        hudLeft = -ox;
+        hudRight = viewW - WIDTH - ox;
+        settingsBtn = SETTINGS_BTN.move(hudRight, hudTop);
+        menuButtons.put("settings", settingsBtn);
+        scenery.setView(viewW, ox, viewH - HEIGHT, below);
         fillPipes();
     }
 
@@ -812,10 +828,13 @@ final class Game {
     }
 
     // -- екрани
-    /** монетки зліва вгорі (валюта магазину) */
+    /** монетки в лівому верхньому куті екрана (валюта магазину) */
     private void drawMenuCounters(Canvas c) {
+        c.save();
+        c.translate(hudLeft, hudTop);
         drawPanel(c, COINS_CHIP);
         drawCounter(c, kit.coinIcon, String.valueOf(progress.coins), COINS_CHIP.x + 12, COINS_CHIP.centerY() - 3);
+        c.restore();
     }
 
     /** панель після смерті: рахунок, рекорд, монетки за гру */
@@ -1687,10 +1706,10 @@ final class Game {
 
             // -- земля і стеля (верх екрана): зі щитом пташка відскакує, без щита -- кінець гри
             int ceiling = -oy;
-            if (birdY + BIRD_SIZE > groundY) {
+            if (birdY + BIRD_SIZE > floorY) {
                 hit();
                 if (!over) {
-                    birdY = groundY - BIRD_SIZE;
+                    birdY = floorY - BIRD_SIZE;
                     birdV = JUMP_VELOCITY;
                 }
             } else if (birdY < ceiling) {
@@ -1817,15 +1836,19 @@ final class Game {
             scenery.drawGround(c);
             kit.title.draw(c, tTotal);
             for (Ui.SpriteButton sprite : menuSprites.values()) {
-                sprite.draw(c, tTotal);
+                if (sprite != kit.settings) {
+                    sprite.draw(c, tTotal);
+                }
             }
+            // -- шестерня -- у правому верхньому куті екрана, разом зі своїм хітбоксом settingsBtn
+            kit.settings.draw(c, tTotal, kit.settings.x + hudRight, kit.settings.y + hudTop);
             drawMenuCounters(c);
 
         } else {
             scenery.drawBack(c);
 
             for (Pipe pipe : pipes) {
-                kit.pipe.draw(c, (int) pipe.x, PIPE_WIDTH, pipe.y, pipe.gap, groundY, -oy);
+                kit.pipe.draw(c, (int) pipe.x, PIPE_WIDTH, pipe.y, pipe.gap, floorY, -oy);
             }
 
             drawCoins(c);
@@ -1836,10 +1859,16 @@ final class Game {
             trailPoints(trailPts);
             kit.trail.draw(c, pts, tTotal);
             drawBird(c, BIRD_START_X, birdY, birdV);
+            // -- HUD -- біля верхнього краю екрана: рахунок по центру, монетки і бонуси зліва, рівень справа
+            c.save();
+            c.translate(0, hudTop);
             drawText(c, String.valueOf(score), WIDTH / 2f, 50);
+            c.translate(hudLeft, 0);
             drawCounter(c, kit.coinIcon, String.valueOf(runCoins), 14, 30);
             drawPowerupHud(c);
+            c.translate(hudRight - hudLeft, 0);
             drawLevelHud(c);
+            c.restore();
             if (!over) {
                 drawLevelBanner(c);
             }

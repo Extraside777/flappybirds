@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,13 +36,25 @@ public class GameRenderTest {
     private Game g;
 
     private void shot(String name) throws IOException {
-        Bitmap bmp = Bitmap.createBitmap(Math.round(VIEW_W * K), Math.round(VIEW_H * K), Bitmap.Config.ARGB_8888);
+        shot(name, K, 0);
+    }
+
+    /** cutout -- px полотна згори під камерою: там малюємо чорну «дірку», щоб було видно, що HUD нижче */
+    private void shot(String name, float k, int cutout) throws IOException {
+        Bitmap bmp = Bitmap.createBitmap(Math.round(g.viewW * k), Math.round(g.viewH * k), Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         c.drawColor(Color.BLACK);
-        c.scale(K, K);
+        c.scale(k, k);
         c.clipRect(0, 0, g.viewW, g.viewH);
+        c.save();
         c.translate(g.ox, g.oy);
         g.render(c);
+        c.restore();
+        if (cutout > 0) {
+            Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            p.setColor(Color.BLACK);
+            c.drawCircle(g.viewW / 2f, cutout / 2f, cutout * 0.35f, p);
+        }
         out.mkdirs();
         try (FileOutputStream f = new FileOutputStream(new File(out, name + ".png"))) {
             bmp.compress(Bitmap.CompressFormat.PNG, 100, f);
@@ -86,13 +99,13 @@ public class GameRenderTest {
     @Test
     public void playsThroughAllScreens() throws IOException {
         g = new Game(RuntimeEnvironment.getApplication());
-        g.setView(VIEW_W, VIEW_H, 0, (VIEW_H - Game.HEIGHT) / 2);
+        g.setView(VIEW_W, VIEW_H, 0, (VIEW_H - Game.HEIGHT) / 2, 0);
         g.progress.coins = 2000;
 
         steps(90);
         shot("01_menu");
 
-        tap(Game.SETTINGS_BTN);
+        tap(g.settingsBtn);
         steps(20);
         assertTrue(g.inSettings);
         g.touchDown(Game.SLIDERS[0].x + 50, Game.SLIDERS[0].centerY());   // -- тягнемо повзунок музики
@@ -194,19 +207,67 @@ public class GameRenderTest {
         shot("12_menu_after");
 
         // -- широкий екран (планшет 3:4): поле по центру, небо і труби на всю ширину
-        g.setView(525, 700, 62, 0);
+        g.setView(525, 700, 62, 0, 0);
         tap(Game.PLAY_BTN);
         for (int i = 0; i < 60 && !g.start; i++) {
             g.step();
         }
         autopilot(200);
-        File wide = new File(out, "13_tablet");
-        Bitmap bmp = Bitmap.createBitmap(525, 700, Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(bmp);
-        c.translate(g.ox, g.oy);
-        g.render(c);
-        try (FileOutputStream f = new FileOutputStream(wide.getPath() + ".png")) {
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, f);
+        shot("13_tablet", 1f, 0);
+    }
+
+    /**
+     * Різні екрани (розмір полотна рахується як у GameView: ширина 400, а на широкому -- висота 700).
+     * Земля завжди внизу, HUD і шестерня -- біля верхнього краю (під вирізом камери) і біля бокових країв,
+     * місця для польоту більшає порівну зверху і знизу. Знімки -- app/build/screens/screen_*.png
+     */
+    @Test
+    public void layoutFitsEveryScreen() throws IOException {
+        // -- назва, ширина і висота полотна, виріз камери (px полотна)
+        Object[][] screens = {
+                {"16x9", 400, 711, 0},          // -- 720x1280, старі телефони
+                {"20x9", 400, 889, 41},         // -- 1080x2400 з камерою в екрані
+                {"22x9", 400, 978, 30},         // -- вузький екран, як зовнішній у розкладних
+                {"tablet", 525, 700, 0},        // -- планшет 3:4
+                {"fold", 583, 700, 0},          // -- розкладний телефон, внутрішній екран
+        };
+        for (Object[] s : screens) {
+            String name = (String) s[0];
+            int vw = (Integer) s[1], vh = (Integer) s[2], cutout = (Integer) s[3];
+            g = new Game(RuntimeEnvironment.getApplication());
+            g.setView(vw, vh, (vw - Game.WIDTH) / 2, (vh - Game.HEIGHT) / 2, cutout);
+            g.progress.coins = 2000;
+            int top = -g.oy, bottom = vh - g.oy, left = -g.ox, right = vw - g.ox;
+
+            // -- земля така ж товста, як на полі 400x700, і доходить до низу екрана
+            assertEquals(name, Game.HEIGHT - g.groundY, bottom - g.floorY);
+            // -- додаткове місце для польоту -- порівну над трубами (стеля -- верх екрана) і під ними
+            assertTrue(name, Math.abs(-top - (g.floorY - g.groundY)) <= 1);
+            // -- шестерня -- на тій самій відстані від правого верхнього кута (нижче вирізу)
+            assertEquals(name, Game.SETTINGS_BTN.y + cutout, g.settingsBtn.y - top);
+            assertEquals(name, Game.WIDTH - Game.SETTINGS_BTN.right(), right - g.settingsBtn.right());
+            // -- монетки -- біля лівого краю, так само далеко від нього, як на полі 400x700
+            assertEquals(name, left, g.hudLeft);
+
+            steps(90);
+            shot("screen_" + name + "_menu", 1f, cutout);
+
+            tap(g.settingsBtn);
+            steps(20);
+            assertTrue(name, g.inSettings);
+            assertTrue(name, g.back());
+            steps(5);
+
+            tap(Game.PLAY_BTN);
+            for (int i = 0; i < 60 && !g.start; i++) {
+                g.step();
+            }
+            assertTrue(name, g.start);
+            autopilot(300);
+            g.shield = true;
+            g.boost[Game.X2] = 8;
+            autopilot(30);
+            shot("screen_" + name + "_game", 1f, cutout);
         }
     }
 }

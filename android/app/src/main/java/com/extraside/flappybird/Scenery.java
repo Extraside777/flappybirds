@@ -17,8 +17,8 @@ import java.util.Random;
 
 /**
  * Фон: небо, хмари, шари гір/міста, кущів і землі (паралакс), світило і ефекти.
- * Малює в координатах полотна: x від 0 до viewW, y -- як у ігрового поля (0..700).
- * На високому екрані телефона небо продовжується вгору (top), а земля -- вниз (bottom).
+ * Малює в координатах полотна: x від 0 до viewW, y -- як у ігрового поля (0..700), зсунутого на dy вниз.
+ * На високому екрані телефона земля завжди внизу екрана, а небо продовжується вгору (top).
  */
 final class Scenery {
 
@@ -342,8 +342,6 @@ final class Scenery {
 
     // -- мініатюра фону в магазині: смуга сцени від неба над горизонтом до землі (у координатах поля)
     static final int THUMB_TOP = 360, THUMB_H = 320;
-    // -- рядки картинки землі, якими земля продовжується вниз на високих екранах (без трави і без нижньої рамки)
-    private static final int DIRT_FROM = 46, DIRT_TO = 75;
 
     final int screenW;
     final int groundY;
@@ -360,7 +358,7 @@ final class Scenery {
     float t = 0f;
     private final ScrollLayer far, bushes, ground;
     private final HashMap<String, Bitmap> thumbs = new HashMap<>();
-    int viewW, ox, top, bottom;
+    int viewW, ox, top, dy;
 
     Scenery(Assets a, JSONObject manifest, JSONArray backdrops, int screenW) throws JSONException {
         this.screenW = screenW;
@@ -416,17 +414,18 @@ final class Scenery {
     }
 
     /**
-     * розмір полотна: ширина viewW (ігрове поле починається з ox), над полем ще top px неба,
-     * під полем -- bottom px землі. Набір хмар повторюється кожні screenW пікселів, щоб по боках теж були хмари
+     * розмір полотна: ширина viewW (ігрове поле починається з ox), над полем ще top px неба; dy -- на скільки
+     * фон нижче за поле гри (щоб земля була внизу екрана). Набір хмар повторюється кожні screenW пікселів,
+     * щоб по боках теж були хмари
      */
-    void setView(int viewW, int ox, int top, int bottom) {
-        if (viewW == this.viewW && ox == this.ox && top == this.top && bottom == this.bottom) {
+    void setView(int viewW, int ox, int top, int dy) {
+        if (viewW == this.viewW && ox == this.ox && top == this.top && dy == this.dy) {
             return;
         }
         this.viewW = viewW;
         this.ox = ox;
         this.top = top;
-        this.bottom = bottom;
+        this.dy = dy;
         int first = -(int) Math.ceil(ox / (double) screenW);
         int last = (int) Math.ceil((viewW - ox) / (double) screenW);
         clouds = new ArrayList<>();
@@ -485,7 +484,7 @@ final class Scenery {
     /** небо і все, що позаду труб. Canvas -- у координатах ігрового поля */
     void drawBack(Canvas c) {
         c.save();
-        c.translate(-ox, 0);
+        c.translate(-ox, dy);
         if (top > 0) {
             Gfx.fill(c, theme.skyTop, 0, -top, viewW, top + 1);
         }
@@ -494,24 +493,11 @@ final class Scenery {
         c.restore();
     }
 
-    /** земля (і її продовження вниз на високому екрані) */
+    /** земля -- по нижньому краю екрана */
     void drawGround(Canvas c) {
         c.save();
-        c.translate(-ox, 0);
+        c.translate(-ox, dy);
         ground.draw(c, viewW);
-        if (bottom > 0) {
-            Bitmap img = ground.image;
-            int band = DIRT_TO - DIRT_FROM;
-            int end = ground.y + img.getHeight() + bottom;
-            for (int y = ground.y + img.getHeight() - 1; y < end; y += band) {
-                int h = Math.min(band, end - y);
-                int x = -(int) ground.offset;
-                while (x < viewW) {
-                    Gfx.blitTo(c, img, Gfx.src(0, DIRT_FROM, img.getWidth(), h), x, y, img.getWidth(), h);
-                    x += img.getWidth();
-                }
-            }
-        }
         c.restore();
     }
 

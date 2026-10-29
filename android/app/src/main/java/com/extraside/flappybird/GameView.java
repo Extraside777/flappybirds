@@ -3,12 +3,16 @@ package com.extraside.flappybird;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.os.Build;
+import android.view.DisplayCutout;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 
 /**
  * Полотно гри. Масштаб -- як у src/display.py, але для телефона: ширина ігрового поля 400 тягнеться на
- * всю ширину екрана, а зайва висота йде на небо зверху і землю знизу (чорних смуг нема).
+ * всю ширину екрана, а зайва висота йде на небо (земля завжди внизу, чорних смуг нема).
+ * Що саме де стоїть на високому/широкому екрані -- див. Game.setView.
  * Цикл: кожен кадр екрана -- скільки треба кроків гри по 1/60 сек, потім малювання.
  */
 final class GameView extends View {
@@ -31,6 +35,27 @@ final class GameView extends View {
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        layoutGame(w, h);
+    }
+
+    /** вирізи камери приходять окремо від розміру (і можуть змінитись) -- перераховуємо, де HUD */
+    @Override
+    public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+        layoutGame(getWidth(), getHeight());
+        return super.onApplyWindowInsets(insets);
+    }
+
+    /** px згори, які закриває виріз камери (гра малює і під ним -- там небо, але HUD має бути нижче) */
+    private int cutoutTop() {
+        if (Build.VERSION.SDK_INT < 28) {
+            return 0;
+        }
+        WindowInsets insets = getRootWindowInsets();
+        DisplayCutout cut = insets == null ? null : insets.getDisplayCutout();
+        return cut == null ? 0 : cut.getSafeInsetTop();
+    }
+
+    private void layoutGame(int w, int h) {
         if (w <= 0 || h <= 0) {
             return;
         }
@@ -39,7 +64,7 @@ final class GameView extends View {
             k = h / (float) Game.HEIGHT;
             viewH = Game.HEIGHT;
             viewW = Math.min(Math.round(w / k), MAX_VIEW_W);
-        } else {                                                   // -- вищий: небо і земля довші
+        } else {                                                   // -- вищий: небо довше
             k = w / (float) Game.WIDTH;
             viewW = Game.WIDTH;
             viewH = Math.round(h / k);
@@ -48,7 +73,8 @@ final class GameView extends View {
         destY = (h - viewH * k) / 2;
         int ox = (viewW - Game.WIDTH) / 2;
         int oy = (viewH - Game.HEIGHT) / 2;
-        game.setView(viewW, viewH, ox, oy);
+        int safeTop = Math.max(0, (int) Math.ceil((cutoutTop() - destY) / k));
+        game.setView(viewW, viewH, ox, oy, safeTop);
     }
 
     @Override
