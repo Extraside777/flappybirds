@@ -2,6 +2,7 @@ package com.extraside.flappybird;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.ColorFilter;
 import android.graphics.Paint;
 
 /** заголовок FLAPPY BIRD, що підстрибує, і анімовані кнопки-спрайти */
@@ -143,12 +144,15 @@ final class Ui {
 
     static final class SpriteButton {
         static final float BOB_SPEED = 2.4f;
+        static final float OFF_DIM = 0.72f;     // -- вимкнена кнопка (зараз не спрацює) темніша
+        private static final ColorFilter OFF_FILTER = Gfx.darken(OFF_DIM);
 
         Face face;
         final int x, y;
         final float bobPhase, bobAmp, dark;
         float hover = 0f;
         float press = 0f;
+        boolean off = false;
         private final Paint paint = new Paint();
 
         SpriteButton(Face face, int x, int y, float bobPhase, float bobAmp, float dark) {
@@ -174,7 +178,11 @@ final class Ui {
         void draw(Canvas c, float t, float px, float py) {
             int w = face.width(), h = face.height();
             py += Math.round(Math.sin(t * BOB_SPEED + bobPhase) * bobAmp);
-            paint.setColorFilter(press > 0.001f ? Gfx.darken(1 - dark * press) : null);
+            if (press > 0.001f) {
+                paint.setColorFilter(Gfx.darken((1 - dark * press) * (off ? OFF_DIM : 1f)));
+            } else {
+                paint.setColorFilter(off ? OFF_FILTER : null);
+            }
             float s = 1f + 0.03f * hover - 0.06f * press;
             c.save();
             if (Math.abs(s - 1f) > 0.004f) {

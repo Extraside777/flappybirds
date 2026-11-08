@@ -26,7 +26,9 @@ PROGRESS_DEFAULTS = {
     "owned_pipes": ["classic"],
     # -- свій шлейф: кольори з палітри (номери, src/sprites.py TRAIL_PALETTE), стиль, товщина 0..1
     "custom_trail": {"c1": 9, "c2": 6, "style": "glow", "width": 0.5},
+    "ad_views": [],             # -- коли дивились рекламу за монети (сек від 1970), лише за останню добу
 }
+NUMBER_LISTS = {"ad_views"}     # -- списки чисел (решта списків -- рядки)
 
 
 def _merge(defaults, saved):
@@ -43,7 +45,8 @@ def _merge(defaults, saved):
         elif isinstance(default, str) and isinstance(value, str):
             data[key] = value
         elif isinstance(default, list) and isinstance(value, list):
-            data[key] = [v for v in value if isinstance(v, str)]
+            kind = int if key in NUMBER_LISTS else str
+            data[key] = [v for v in value if isinstance(v, kind) and not isinstance(v, bool)]
         elif isinstance(default, dict) and isinstance(value, dict):
             data[key] = _merge(default, value)
     return data

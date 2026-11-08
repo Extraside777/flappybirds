@@ -181,6 +181,10 @@ final class GameView extends View {
         game.jumpKey();
     }
 
+    void setAds(Ads ads) {
+        game.ads = ads;
+    }
+
     void release() {
         game.release();
     }

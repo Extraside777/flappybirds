@@ -1,11 +1,13 @@
 import math
 import os
 import random
+import time
 import pygame
 
 import settings
 from audio import Music, Sounds
 from display import Display, enable_dpi_awareness
+from edition import AD_BUTTON
 from levels import LEVELS, level_for
 from sprites import SpriteKit, TRAIL_PALETTE, TRAIL_STYLES
 
@@ -169,6 +171,21 @@ EDIT_BACK_RECT.midtop = (WIDTH // 2, EDIT_PANEL.bottom + 6)
 # -- лічильник монет у меню
 COINS_CHIP = pygame.Rect(10, 12, 128, 46)
 
+# -- монети за рекламу: кнопка під лічильником монет. AD_LIMIT переглядів за AD_WINDOW, кожен перегляд
+# -- «звільняється» через добу після себе. На ПК реклами Google нема (AdMob -- лише для телефонів), тому тут
+# -- кнопка дає монети одразу; на Android -- коли гравець додивився ролик (android/.../AdMob.java)
+AD_REWARD = 5
+AD_LIMIT = 5
+AD_WINDOW = 24 * 3600      # -- сек
+AD_BTN = pygame.Rect(10, 64, 128, 50)
+AD_PIP = 10                # -- під кнопкою -- AD_LIMIT квадратиків: золоті -- скільки переглядів ще можна
+AD_PIP_GAP = 10
+AD_PIP_COLORS = ((255, 196, 50), (255, 236, 150))   # -- колір і блік (як у монетки)
+AD_INFO_Y = AD_BTN.bottom + 14   # -- центр квадратиків або таймера «до наступного перегляду»
+AD_NOTE_Y = 328            # -- «повертайся пізніше» -- між заголовком і кнопкою PLAY
+AD_NOTE_TIME = 1.6         # -- сек, скільки висить напис
+AD_REWARD_TIME = 1.0       # -- сек, скільки злітає «+5» біля кнопки
+
 MUSIC_MAX_VOLUME = 0.5    # -- гучність музики при повзунку на 100% (1.0 = максимум pygame)
 SFX_MAX_VOLUME = 0.6
 
@@ -267,6 +284,11 @@ MENU_BUTTONS = {
     "settings": SETTINGS_BTN,
 }
 
+# -- «монети за рекламу» -- не в кожній збірці (src/edition.py)
+if AD_BUTTON:
+    MENU_SPRITES["ad"] = kit.ad
+    MENU_BUTTONS["ad"] = AD_BTN
+
 bird_y = BIRD_START_Y
 bird_v = 0
 
@@ -299,6 +321,9 @@ editing = False     # -- чи відкритий редактор свого ш�
 edit_slot = 0       # -- який колір зараз міняємо: 0 -- біля пташки, 1 -- хвіст
 edit_pts = []       # -- точки шлейфу в перегляді редактора: [x, y, вік, випадкове 0..1]
 not_enough = 0.0    # -- таймер напису «недостатньо монет»
+ad_note = "ad_limit"   # -- який напис показати після натискання кнопки реклами
+ad_note_time = 0.0     # -- і скільки йому ще висіти
+ad_reward_t = None     # -- скільки сек тому нарахували монети за рекламу (None -- «+5» не летить)
 dragging = None     # -- який повзунок тягнуть мишкою
 
 pressed = None      # -- яку кнопку тримають
@@ -757,6 +782,78 @@ def draw_menu_counters():
     """монетки зліва вгорі (стануть валютою магазину)"""
     screen.blit(kit.panel.render(COINS_CHIP.width, COINS_CHIP.height), COINS_CHIP)
     draw_counter(kit.coin_icon, progress["coins"], COINS_CHIP.x + 12, COINS_CHIP.centery - 3)
+
+
+# -- монети за рекламу
+def ad_views(now):
+    """
+    коли дивились рекламу за останню добу (старші перегляди вже не рахуються).
+    Якщо годинник перевели назад, перегляд з «майбутнього» рахується, ніби був щойно
+    """
+    return [min(t, now) for t in progress["ad_views"] if now - t < AD_WINDOW]
+
+
+def ads_left():
+    """скільки ще переглядів можна зараз і через скільки сек звільниться наступний (коли не можна жодного)"""
+    now = time.time()
+    views = ad_views(int(now))
+    return max(0, AD_LIMIT - len(views)), (min(views) + AD_WINDOW - now if views else 0.0)
+
+
+def watch_ad():
+    """кнопка «монети за рекламу»: ліміт вичерпано -- «повертайся пізніше», інакше -- монети (на ПК одразу)"""
+    global ad_note, ad_note_time
+    if ads_left()[0] == 0:
+        ad_note, ad_note_time = "ad_limit", AD_NOTE_TIME
+        return
+    ad_reward()
+
+
+def ad_reward():
+    """рекламу додивились: монети, перегляд записуємо (для ліміту) і одразу зберігаємо"""
+    global ad_reward_t, ad_note_time
+    now = int(time.time())
+    progress["ad_views"] = ad_views(now) + [now]
+    progress["coins"] += AD_REWARD
+    settings.save(SAVE_PATH, progress)
+    sfx.play("coin")
+    ad_reward_t = 0.0
+    ad_note_time = 0.0
+
+
+def clock_text(sec):
+    """4:05:09 -- скільки годин, хвилин і секунд лишилось"""
+    sec = max(0, math.ceil(sec))
+    return f"{sec // 3600}:{sec // 60 % 60:02d}:{sec % 60:02d}"
+
+
+def draw_ad_info(left, wait):
+    """
+    під кнопкою реклами: золоті квадратики -- скільки переглядів ще можна (сірі -- вже використані),
+    а коли не лишилось жодного -- таймер до наступного. Над кнопкою злітає «+5», коли монети нараховано
+    """
+    if left:
+        w = AD_LIMIT * AD_PIP + (AD_LIMIT - 1) * AD_PIP_GAP
+        for i in range(AD_LIMIT):
+            pip = pygame.Rect(AD_BTN.centerx - w // 2 + i * (AD_PIP + AD_PIP_GAP), AD_INFO_Y - AD_PIP // 2,
+                              AD_PIP, AD_PIP)
+            pygame.draw.rect(screen, COLOR_OUTLINE, pip.inflate(6, 6), border_radius=5)
+            if i < left:
+                pygame.draw.rect(screen, AD_PIP_COLORS[0], pip, border_radius=3)
+                pygame.draw.rect(screen, AD_PIP_COLORS[1], (pip.x + 2, pip.y + 2, pip.width - 4, 2))
+            else:
+                pygame.draw.rect(screen, COLOR_SLIDER_BACK, pip, border_radius=3)
+    else:
+        kit.draw_number(screen, clock_text(wait), AD_BTN.centerx, AD_INFO_Y + 2)
+
+    if ad_reward_t is not None:
+        k = ad_reward_t / AD_REWARD_TIME
+        plus = number_image(f"+{AD_REWARD}")
+        plus.set_alpha(int(255 * (1 - k * k)))
+        blit_center(plus, AD_BTN.right + 26, AD_BTN.centery - 6 - 36 * k)
+
+    if ad_note_time > 0 and int((AD_NOTE_TIME - ad_note_time) * 6) % 2 == 0:
+        blit_center(kit.text(ad_note), WIDTH // 2, AD_NOTE_Y)
 
 
 def draw_result(slide):
@@ -1270,6 +1367,8 @@ while run:
                 in_settings = True
             elif pressed == "record":
                 in_records = True
+            elif pressed == "ad":
+                watch_ad()
             elif pressed == "back" and editing:
                 close_editor()
             elif pressed == "back":
@@ -1405,6 +1504,9 @@ while run:
 
     press_progress = press_time / PRESS_ACTION_DELAY if pressed else 0
     not_enough = max(0.0, not_enough - dts)
+    ad_note_time = max(0.0, ad_note_time - dts)
+    if ad_reward_t is not None:
+        ad_reward_t = ad_reward_t + dts if ad_reward_t + dts < AD_REWARD_TIME else None
     over_time = over_time + dts if over else 0.0
 
     # -- анімація фону: у меню повільно, у грі як труби, після смерті стоїть
@@ -1438,6 +1540,8 @@ while run:
         button.draw(screen, t_total, back.x, back.y)
 
     elif not start:
+        ad_left, ad_wait = ads_left()
+        kit.ad.off = ad_left == 0      # -- ліміт вичерпано: кнопка темніша, під нею таймер
         for name, sprite in MENU_SPRITES.items():
             sprite.update(dts, MENU_BUTTONS[name].collidepoint(mouse_pos),
                           press_progress if pressed == name else 0.0)
@@ -1450,6 +1554,8 @@ while run:
             sprite.draw(screen, t_total)
 
         draw_menu_counters()
+        if AD_BUTTON:
+            draw_ad_info(ad_left, ad_wait)
 
     else:
         scenery.draw_back(view)

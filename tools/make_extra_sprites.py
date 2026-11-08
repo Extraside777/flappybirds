@@ -22,6 +22,7 @@
   * малює фони для магазину: захід сонця, ніч і зиму (див. BACKGROUNDS)
   * малює скіни труб для магазину: крижана, льодяник і золота (див. PIPE_SKINS)
   * малює золотий напис «РІВЕНЬ 2» для зміни рівня і генерує звук нового рівня
+  * малює кнопку «монети за рекламу» (телевізор, +5, монетка) для головного меню
   * пише assets/sprites/extra.json -- його читає гра
 
 Кирилиці в assets/fonts/OutlineStyleRegular.ttf немає, тому букви малюються шрифтом
@@ -380,7 +381,8 @@ TEXTS = {
            "tab_birds": "BIRDS", "tab_trails": "TRAILS", "tab_pipes": "PIPES", "tab_backgrounds": "WORLDS",
            "custom_title": "CUSTOM TRAIL", "edit": "EDIT", "colors": "COLORS", "style": "STYLE", "width": "WIDTH",
            "style_ribbon": "RIBBON", "style_glow": "GLOW", "style_bubbles": "BUBBLES", "style_pixels": "PIXELS",
-           "style_sparks": "SPARKS", "level": "LEVEL", "level_title": "LEVEL"},
+           "style_sparks": "SPARKS", "level": "LEVEL", "level_title": "LEVEL",
+           "ad_wait": "AD IS NOT READY YET", "ad_limit": "COME BACK LATER", "privacy": "AD PRIVACY"},
     "uk": {"game_over": "КІНЕЦЬ ГРИ", "settings": "НАЛАШТУВАННЯ", "language": "МОВА",
            "menu_music": "МУЗИКА В МЕНЮ", "game_music": "МУЗИКА В ГРІ", "sounds": "ЗВУКИ",
            "window_size": "РОЗМІР ВІКНА", "auto": "АВТО", "fullscreen": "ПОВНИЙ ЕКРАН",
@@ -390,7 +392,8 @@ TEXTS = {
            "tab_birds": "ПТАШКИ", "tab_trails": "ШЛЕЙФИ", "tab_pipes": "ТРУБИ", "tab_backgrounds": "ФОНИ",
            "custom_title": "СВІЙ ШЛЕЙФ", "edit": "ЗМІНИТИ", "colors": "КОЛЬОРИ", "style": "СТИЛЬ", "width": "ТОВЩИНА",
            "style_ribbon": "СТРІЧКА", "style_glow": "СЯЙВО", "style_bubbles": "БУЛЬБАШКИ", "style_pixels": "ПІКСЕЛІ",
-           "style_sparks": "ІСКРИ", "level": "РІВЕНЬ", "level_title": "РІВЕНЬ"},
+           "style_sparks": "ІСКРИ", "level": "РІВЕНЬ", "level_title": "РІВЕНЬ",
+           "ad_wait": "РЕКЛАМА ЩЕ НЕ ГОТОВА", "ad_limit": "ПОВЕРТАЙСЯ ПІЗНІШЕ", "privacy": "КОНФІДЕНЦІЙНІСТЬ"},
 }
 BIG = {"game_over", "settings", "records", "shop_title", "custom_title"}
 CARD = {"select", "selected", "edit"}     # -- написи на картці пташки в магазині: дрібніші
@@ -437,6 +440,12 @@ for lang, items in TEXTS.items():
             spr = pixel_text(text, 17, shade=0.55, fill=GOLD, shade_color=GOLD_SHADE, fixed=True)
         elif key == "level_title":
             spr = pixel_text(text, **LEVEL_TITLE)
+        elif key == "privacy":
+            cap = 17
+            spr = pixel_text(text, cap, shade=0.6, fixed=True)
+            while spr.shape[1] > 248:           # -- влазить у кнопку в налаштуваннях (Android, 296 px з рамкою)
+                cap -= 1
+                spr = pixel_text(text, cap, shade=0.6, fixed=True)
         else:
             spr = pixel_text(text, 17, shade=0.6, fixed=True)
         extra["texts"][lang][key] = save(f"{key}.png", spr, f"text/{lang}")
@@ -448,7 +457,8 @@ extra["lang_names"] = {
 }
 
 # цифри: темні (на кремовій панелі) і світлі з контуром (на небі і на кнопках)
-DIGIT_CHARS = [(str(i), str(i)) for i in range(10)] + [("%", "percent"), ("×", "x"), ("+", "plus")]
+DIGIT_CHARS = [(str(i), str(i)) for i in range(10)] + [("%", "percent"), ("×", "x"), ("+", "plus"),
+                                                       (":", "colon")]
 extra["digits"] = {
     c: save(f"digit_{name}.png", pixel_text(c, 14, outline=0, fill=OUTLINE, shade_color=OUTLINE, track=0,
                                           fixed=True), "text/digits")
@@ -1662,6 +1672,57 @@ for i, (bg_id, price, paint_bg) in enumerate(BACKGROUNDS):
                         # -- на мініатюрі в магазині видно тільки низ неба -- там і показуємо світило
                         "thumb_y": int(art.get("body_thumb_y", cy) - img.shape[0] // 2)}
     extra["backgrounds"].append(spec)
+
+# --------------------------------------------------------------------------
+# 11. кнопка «монети за рекламу» (головне меню, під лічильником монет): телевізор з «грати», +5 і монетка.
+#     Слів на ній нема -- одна картинка на обидві мови; скільки переглядів лишилось, гра малює сама
+# --------------------------------------------------------------------------
+AD_TV = [
+    "........K..K........",
+    ".........KK.........",
+    ".KKKKKKKKKKKKKKKKKK.",
+    "KhhhhhhhhhhhhhhhhhhK",
+    "KhKKKKKKKKKKKKKRRRRK",
+    "KhKSssSWSSSSSSKRooRK",
+    "KhKSsSSWWSSSSSKRRRRK",
+    "KhKSSSSWWWSSSSKRooRK",
+    "KhKSSSSWWWWSSSKRRRRK",
+    "KhKSSSSwwwSSSSKRddRK",
+    "KhKSSSSwwSSSSSKRRRRK",
+    "KhKSSSSwSSSSSSKRddRK",
+    "KRKKKKKKKKKKKKKRRRRK",
+    "KddddddddddddddddddK",
+    ".KKKKKKKKKKKKKKKKKK.",
+]
+AD_TV_COLORS = {
+    "K": OUTLINE, "R": (232, 72, 64), "h": (255, 140, 120), "d": (176, 40, 44),
+    "S": (60, 132, 214), "s": (150, 210, 255), "W": WHITE, "w": CREAM, "o": (255, 214, 60),
+}
+AD_REWARD = 5                 # -- скільки монет за перегляд (те саме число -- AD_REWARD у грі)
+AD_BTN_W, AD_BTN_H = 128, 50  # -- ширина -- як у лічильника монет над кнопкою
+AD_BTN_POS = (10, 64)
+
+
+def panel_box(w, h):
+    """порожня панель потрібного розміру -- як NineSlice у грі: кути як є, середина -- повтором рядка/стовпчика"""
+    b = extra["panel"]["slice"]
+    rows = np.concatenate([panel[:b], np.repeat(panel[panel.shape[0] // 2:][:1], h - 2 * b, axis=0), panel[-b:]])
+    return np.concatenate([rows[:, :b], np.repeat(rows[:, b:b + 1], w - 2 * b, axis=1), rows[:, -b:]], axis=1)
+
+
+ad_btn = panel_box(AD_BTN_W, AD_BTN_H)
+ad_parts = [upscale(pixel_map(AD_TV, AD_TV_COLORS), 2)]
+ad_parts += [load(extra["digits_light"][c]) for c in f"+{AD_REWARD}"]
+ad_parts.append(load(extra["coin"]["file"])[:, :extra["coin"]["fw"]])
+AD_GAPS = [4, 2, 2]           # -- px між телевізором, «+», цифрою і монеткою
+ad_w = sum(p.shape[1] for p in ad_parts) + sum(AD_GAPS)
+ad_x, ad_cy = (AD_BTN_W - ad_w) // 2, AD_BTN_H // 2 - 3     # -- -3: знизу рамка товща (як у лічильника монет)
+for part, gap in zip(ad_parts, AD_GAPS + [0]):
+    paste(ad_btn, part, ad_x, ad_cy - part.shape[0] // 2)
+    ad_x += part.shape[1] + gap
+extra["ad"] = {"file": save("btn_ad_sheet.png", np.concatenate(shine_frames(ad_btn), axis=1), "buttons"),
+               "frames": 14, "fw": AD_BTN_W, "fh": AD_BTN_H, "x": AD_BTN_POS[0], "y": AD_BTN_POS[1],
+               "fps": 24, "pause": 3.2}
 
 with open(os.path.join(OUT, "extra.json"), "w", encoding="utf-8") as fh_:
     json.dump(extra, fh_, ensure_ascii=False, indent=2)

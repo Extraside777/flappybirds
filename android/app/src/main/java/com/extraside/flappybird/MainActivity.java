@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
         view = new GameView(this);
         setContentView(view);
         hideSystemUi();
+        view.setAds(new AdMob(this));    // -- реклама за монети (кнопка в меню)
     }
 
     /**

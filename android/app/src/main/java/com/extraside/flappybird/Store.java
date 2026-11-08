@@ -79,6 +79,7 @@ final class Store {
         String pipe = "classic";                    // -- скін труб
         List<String> ownedPipes = list("classic");
         TrailConfig customTrail = new TrailConfig();
+        List<Long> adViews = new ArrayList<>();     // -- коли дивились рекламу за монети (сек від 1970), лише за добу
     }
 
     private static List<String> list(String first) {
@@ -138,6 +139,18 @@ final class Store {
         return out;
     }
 
+    private static List<Long> numbers(JSONObject o, String key) {
+        List<Long> out = new ArrayList<>();
+        JSONArray a = o.optJSONArray(key);
+        for (int i = 0; a != null && i < a.length(); i++) {
+            Object v = a.opt(i);
+            if (v instanceof Integer || v instanceof Long) {
+                out.add(((Number) v).longValue());
+            }
+        }
+        return out;
+    }
+
     static Config loadConfig(File f) {
         JSONObject o = read(f);
         Config c = new Config();
@@ -169,6 +182,7 @@ final class Store {
             p.customTrail.style = str(ct, "style", p.customTrail.style);
             p.customTrail.width = unit(ct, "width", p.customTrail.width);
         }
+        p.adViews = numbers(o, "ad_views");
         return p;
     }
 
@@ -225,6 +239,7 @@ final class Store {
             ct.put("style", p.customTrail.style);
             ct.put("width", r2(p.customTrail.width));
             o.put("custom_trail", ct);
+            o.put("ad_views", new JSONArray(p.adViews));
             write(f, o);
         } catch (JSONException ignored) {
         }

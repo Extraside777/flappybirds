@@ -165,7 +165,10 @@
       "style_pixels": "text/en/style_pixels.png",
       "style_sparks": "text/en/style_sparks.png",
       "level": "text/en/level.png",
-      "level_title": "text/en/level_title.png"
+      "level_title": "text/en/level_title.png",
+      "ad_wait": "text/en/ad_wait.png",
+      "ad_limit": "text/en/ad_limit.png",
+      "privacy": "text/en/privacy.png"
     },
     "uk": {
       "game_over": "text/uk/game_over.png",
@@ -202,7 +205,10 @@
       "style_pixels": "text/uk/style_pixels.png",
       "style_sparks": "text/uk/style_sparks.png",
       "level": "text/uk/level.png",
-      "level_title": "text/uk/level_title.png"
+      "level_title": "text/uk/level_title.png",
+      "ad_wait": "text/uk/ad_wait.png",
+      "ad_limit": "text/uk/ad_limit.png",
+      "privacy": "text/uk/privacy.png"
     }
   },
   "lang_names": {
@@ -222,7 +228,8 @@
     "9": "text/digits/digit_9.png",
     "%": "text/digits/digit_percent.png",
     "×": "text/digits/digit_x.png",
-    "+": "text/digits/digit_plus.png"
+    "+": "text/digits/digit_plus.png",
+    ":": "text/digits/digit_colon.png"
   },
   "digits_light": {
     "0": "text/digits_light/digit_0.png",
@@ -237,7 +244,8 @@
     "9": "text/digits_light/digit_9.png",
     "%": "text/digits_light/digit_percent.png",
     "×": "text/digits_light/digit_x.png",
-    "+": "text/digits_light/digit_plus.png"
+    "+": "text/digits_light/digit_plus.png",
+    ":": "text/digits_light/digit_colon.png"
   },
   "digits_big": {
     "0": "text/digits_big/digit_0.png",
@@ -252,7 +260,8 @@
     "9": "text/digits_big/digit_9.png",
     "%": "text/digits_big/digit_percent.png",
     "×": "text/digits_big/digit_x.png",
-    "+": "text/digits_big/digit_plus.png"
+    "+": "text/digits_big/digit_plus.png",
+    ":": "text/digits_big/digit_colon.png"
   },
   "digits_title": {
     "0": "text/digits_title/digit_0.png",
@@ -267,7 +276,8 @@
     "9": "text/digits_title/digit_9.png",
     "%": "text/digits_title/digit_percent.png",
     "×": "text/digits_title/digit_x.png",
-    "+": "text/digits_title/digit_plus.png"
+    "+": "text/digits_title/digit_plus.png",
+    ":": "text/digits_title/digit_colon.png"
   },
   "pipes": [
     {
@@ -546,5 +556,15 @@
         "snow"
       ]
     }
-  ]
+  ],
+  "ad": {
+    "file": "buttons/btn_ad_sheet.png",
+    "frames": 14,
+    "fw": 128,
+    "fh": 50,
+    "x": 10,
+    "y": 64,
+    "fps": 24,
+    "pause": 3.2
+  }
 }

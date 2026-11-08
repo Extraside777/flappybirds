@@ -1,0 +1,113 @@
+# -- Збирає застосунок для iPhone (.ipa) на Mac-сервері GitHub: веб-версія гри (web/ + assets/) у Capacitor.
+# -- .ipa без підпису -- його підписує Sideloadly вашим Apple ID під час встановлення (див. iphone/README.md).
+# -- Запуск: сам при push змін гри, або вручну -- Actions -> «iPhone (.ipa)» -> Run workflow.
+# -- Готовий файл -- унизу сторінки запуску, у розділі Artifacts (FlappyBird-ipa).
+name: iPhone (.ipa)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "web/**"
+      - "assets/**"
+      - "iphone/**"
+      - "tools/make_web.py"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # -- свій Python: у системний (Homebrew) на Mac-сервері ставити бібліотеки заборонено (PEP 668)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Веб-версія гри -> iphone/www
+        run: |
+          python -m pip install --quiet pillow
+          python tools/make_web.py iphone/www --admob iphone/admob.properties
+
+      - name: Проєкт Xcode (Capacitor)
+        working-directory: iphone
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add ios --packagemanager SPM
+          npx cap sync ios
+
+      - name: Info.plist, іконка, екран запуску
+        working-directory: iphone
+        run: |
+          P=ios/App/App/Info.plist
+          pb() { /usr/libexec/PlistBuddy -c "$1" "$P" 2>/dev/null || true; }
+          APP_ID=$(grep '^appId=' admob.properties | cut -d= -f2-)
+          # -- AdMob: ID застосунку і мережа Google для атрибуції реклами (SKAdNetwork)
+          pb "Delete :GADApplicationIdentifier"
+          pb "Add :GADApplicationIdentifier string $APP_ID"
+          pb "Delete :SKAdNetworkItems"
+          pb "Add :SKAdNetworkItems array"
+          pb "Add :SKAdNetworkItems:0 dict"
+          pb "Add :SKAdNetworkItems:0:SKAdNetworkIdentifier string cstr6suwn9.skadnetwork"
+          # -- лише вертикально, без статус-бару, на iPad -- на весь екран
+          pb "Delete :UISupportedInterfaceOrientations"
+          pb "Add :UISupportedInterfaceOrientations array"
+          pb "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait"
+          pb "Delete :UISupportedInterfaceOrientations~ipad"
+          pb "Add :UISupportedInterfaceOrientations~ipad array"
+          pb "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait"
+          pb "Delete :UIRequiresFullScreen"
+          pb "Add :UIRequiresFullScreen bool true"
+          pb "Delete :UIStatusBarHidden"
+          pb "Add :UIStatusBarHidden bool true"
+          pb "Delete :UIViewControllerBasedStatusBarAppearance"
+          pb "Add :UIViewControllerBasedStatusBarAppearance bool false"
+          pb "Delete :ITSAppUsesNonExemptEncryption"
+          pb "Add :ITSAppUsesNonExemptEncryption bool false"
+          pb "Delete :CFBundleDisplayName"
+          pb "Add :CFBundleDisplayName string Flappy Bird"
+          # -- іконка: кожну картинку набору замінюємо нашою потрібного розміру
+          for f in ios/App/App/Assets.xcassets/AppIcon.appiconset/*.png; do
+            W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+            sips -z "$W" "$W" www/app-icon-1024.png --out "$f" >/dev/null
+          done
+          # -- екран запуску -- кольору неба (замість стандартного білого)
+          for f in ios/App/App/Assets.xcassets/Splash.imageset/*.png; do
+            cp www/splash-2732.png "$f"
+          done
+          rm -f www/app-icon-1024.png www/splash-2732.png
+          npx cap copy ios
+
+      - name: Збірка .ipa (без підпису)
+        working-directory: iphone/ios/App
+        run: |
+          set -o pipefail
+          if [ -d App.xcworkspace ]; then SRC="-workspace App.xcworkspace"; else SRC="-project App.xcodeproj"; fi
+          xcodebuild $SRC -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -40
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry "$GITHUB_WORKSPACE/FlappyBird.ipa" Payload
+          ls -la "$GITHUB_WORKSPACE/FlappyBird.ipa"
+
+      - name: Перевірка вмісту .ipa
+        working-directory: iphone/ios/App/Payload/App.app
+        run: |
+          plutil -p Info.plist | grep -E 'CFBundleIdentifier|CFBundleDisplayName|GADApplicationIdentifier|UIStatusBarHidden|UIRequiresFullScreen|Portrait|skadnetwork|MinimumOSVersion'
+          echo "-- іконки:"; ls -la AppIcon* 2>/dev/null || echo "нема AppIcon*.png (іконка -- в Assets.car)"; ls -la Assets.car
+          echo "-- гра:"; ls public public/js; du -sh public
+          grep -q "1712485313" public/js/admob-ids.js && echo "-- ID реклами: тестовий блок iOS"
+          echo "-- AdMob у застосунку: $(strings App | grep -c GADMobileAds) згадок GADMobileAds"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlappyBird-ipa
+          path: FlappyBird.ipa
+          retention-days: 30

@@ -6,3 +6,8 @@ venv/
 settings.json
 save.json
 *.tmp
+steam/
+site/
+iphone/www/
+iphone/node_modules/
+iphone/ios/

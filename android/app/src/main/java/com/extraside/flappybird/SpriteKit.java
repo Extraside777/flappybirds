@@ -27,7 +27,7 @@ final class SpriteKit {
     // -- "title" -- золоті для напису «РІВЕНЬ 2»
     private final HashMap<String, HashMap<Character, Bitmap>> digits = new HashMap<>();
     final Bitmap trophySmall, trophyBig;
-    final Ui.SpriteButton play, shop, menu, done, record, settings;
+    final Ui.SpriteButton play, shop, menu, done, record, settings, ad;
     final List<PipeArt> pipes = new ArrayList<>();
     private final HashMap<String, PipeArt> pipeById = new HashMap<>();
     PipeArt pipe;
@@ -123,6 +123,11 @@ final class SpriteKit {
         Animation gear = new Animation(a.image(g.getString("file")), g.getInt("frames"), (float) g.getDouble("fps"));
         Ui.GearFace face = new Ui.GearFace(a.image(st.getString("base")), gear, g.getInt("ox"), g.getInt("oy"));
         settings = new Ui.SpriteButton(face, st.getInt("x"), st.getInt("y"), 0f, 0f, pressDark);
+        // -- «монети за рекламу» під лічильником монет: слів на кнопці нема, тож одна на обидві мови
+        JSONObject ab = ex.getJSONObject("ad");
+        ad = new Ui.SpriteButton(new Ui.ShineFace(new Animation(a.image(ab.getString("file")), ab.getInt("frames"),
+                (float) ab.getDouble("fps"), (float) ab.getDouble("pause"), 2.4f)), ab.getInt("x"), ab.getInt("y"),
+                0f, 0f, pressDark);
 
         // -- скіни труб у порядку магазину; pipe -- ті, що в грі
         JSONArray ps = ex.getJSONArray("pipes");

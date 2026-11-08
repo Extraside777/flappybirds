@@ -35,6 +35,32 @@ public class GameRenderTest {
     private final File out = new File("build/screens");
     private Game g;
 
+    /** реклама без Google: «ролик» або завантажений, або ні; гравець завжди додивляється до кінця */
+    private static final class FakeAds implements Ads {
+        boolean loaded, privacy;
+        int shown, privacyShown;
+
+        public boolean ready() {
+            return loaded;
+        }
+
+        public void load() {
+        }
+
+        public void show(Runnable reward) {
+            shown++;
+            reward.run();
+        }
+
+        public boolean privacyRequired() {
+            return privacy;
+        }
+
+        public void showPrivacy() {
+            privacyShown++;
+        }
+    }
+
     private void shot(String name) throws IOException {
         shot(name, K, 0);
     }
@@ -105,6 +131,41 @@ public class GameRenderTest {
         steps(90);
         shot("01_menu");
 
+        // -- монети за рекламу: ролик ще не завантажився -- «ще не готова», монет нема
+        FakeAds ads = new FakeAds();
+        g.ads = ads;
+        int coins = g.progress.coins;
+        tap(g.adBtn);
+        steps(20);
+        assertEquals(0, ads.shown);
+        assertEquals("ad_wait", g.adNote);
+        assertEquals(coins, g.progress.coins);
+        shot("01a_menu_ad_wait");
+        // -- завантажився: 5 переглядів по 5 монет (над кнопкою злітає «+5»)...
+        ads.loaded = true;
+        for (int i = 0; i < Game.AD_LIMIT; i++) {
+            tap(g.adBtn);
+            steps(i == 0 ? 14 : 20);
+            if (i == 0) {
+                shot("01b_menu_ad_reward");
+            }
+        }
+        assertEquals(Game.AD_LIMIT, ads.shown);
+        assertEquals(coins + Game.AD_LIMIT * Game.AD_REWARD, g.progress.coins);
+        assertEquals(0, g.adsLeft(Game.now()));
+        // -- ...шостий -- «повертайся пізніше», під кнопкою таймер до наступного
+        tap(g.adBtn);
+        steps(20);
+        assertEquals(Game.AD_LIMIT, ads.shown);
+        assertEquals("ad_limit", g.adNote);
+        shot("01c_menu_ad_limit");
+        // -- перегляди збережено (після перезапуску ліміт той самий), а через добу перший звільняється
+        File save = new File(RuntimeEnvironment.getApplication().getFilesDir(), "save.json");
+        assertEquals(g.progress.adViews, Store.loadProgress(save).adViews);
+        g.progress.adViews.set(0, Game.now() - Game.AD_WINDOW);
+        assertEquals(1, g.adsLeft(Game.now()));
+        g.progress.adViews.clear();
+
         tap(g.settingsBtn);
         steps(20);
         assertTrue(g.inSettings);
@@ -118,6 +179,19 @@ public class GameRenderTest {
         tap(Game.BACK_BTN_RECT);
         steps(20);
         assertFalse(g.inSettings);
+
+        // -- у ЄС у налаштуваннях є «конфіденційність» (форма згоди Google на рекламу), MENU -- нижче
+        ads.privacy = true;
+        tap(g.settingsBtn);
+        steps(20);
+        tap(Game.PRIVACY_BTN);
+        assertEquals(1, ads.privacyShown);
+        steps(5);
+        shot("02b_settings_privacy");
+        tap(Game.BACK_BTN_PRIVACY);
+        steps(20);
+        assertFalse(g.inSettings);
+        ads.privacy = false;
 
         tap(Game.SHOP_BTN);
         steps(20);
@@ -248,6 +322,9 @@ public class GameRenderTest {
             assertEquals(name, Game.WIDTH - Game.SETTINGS_BTN.right(), right - g.settingsBtn.right());
             // -- монетки -- біля лівого краю, так само далеко від нього, як на полі 400x700
             assertEquals(name, left, g.hudLeft);
+            // -- кнопка реклами -- під монетками (теж нижче вирізу)
+            assertEquals(name, Game.AD_BTN.y + cutout, g.adBtn.y - top);
+            assertEquals(name, Game.AD_BTN.x, g.adBtn.x - left);
 
             steps(90);
             shot("screen_" + name + "_menu", 1f, cutout);

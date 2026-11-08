@@ -1,0 +1,12 @@
+{
+  "appId": "com.extraside.flappybird",
+  "appName": "Flappy Bird",
+  "webDir": "www",
+  "backgroundColor": "#4ec0ea",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "backgroundColor": "#4ec0ea"
+  }
+}

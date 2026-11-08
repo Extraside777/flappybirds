@@ -374,6 +374,7 @@ class ShineFace:
 class SpriteButton:
 
     BOB_SPEED = 2.4
+    OFF_DIM = 0.72      # -- вимкнена кнопка (зараз не спрацює) темніша
 
     def __init__(self, face, x, y, bob_phase=0.0, bob_amp=2.0, dark=0.27):
         self.face = face
@@ -383,6 +384,7 @@ class SpriteButton:
         self.dark = dark
         self.hover = 0.0
         self.press = 0.0
+        self.off = False
 
     def update(self, dt, hover=False, press=0.0):
         self.hover += ((1.0 if hover else 0.0) - self.hover) * min(1.0, 12.0 * dt)
@@ -397,9 +399,9 @@ class SpriteButton:
         x = self.x if x is None else x
         y = self.y if y is None else y
         y += round(math.sin(t * self.BOB_SPEED + self.bob_phase) * self.bob_amp)
-        if self.press > 0.001:
+        m = int(255 * (1 - self.dark * self.press) * (self.OFF_DIM if self.off else 1.0))
+        if m < 255:
             img = img.copy()
-            m = int(255 * (1 - self.dark * self.press))
             img.fill((m, m, m), special_flags=pygame.BLEND_RGB_MULT)
         s = 1.0 + 0.03 * self.hover - 0.06 * self.press
         if abs(s - 1.0) > 0.004:
@@ -814,6 +816,9 @@ class SpriteKit:
         gear = Animation(_load(base_dir, g["file"]), g["frames"], g["fps"])
         face = GearFace(_load(base_dir, st["base"]), gear, g["ox"], g["oy"])
         self.settings = SpriteButton(face, st["x"], st["y"], bob_amp=0.0, dark=press_dark)
+        # -- «монети за рекламу» під лічильником монет: слів на кнопці нема, тож одна на обидві мови
+        ad = ex["ad"]
+        self.ad = SpriteButton(shine(ad, start=2.4), ad["x"], ad["y"], bob_amp=0.0, dark=press_dark)
 
         # -- скіни труб у порядку магазину; self.pipe -- ті, що в грі
         self.pipes = [PipeArt(base_dir, spec) for spec in ex["pipes"]]

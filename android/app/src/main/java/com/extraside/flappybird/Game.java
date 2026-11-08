@@ -145,6 +145,13 @@ final class Game {
     static final Box BACK_BTN_RECT = Box.midTop(MENU_BTN_W, MENU_BTN_H, WIDTH / 2, SETTINGS_PANEL.bottom() + 6);
     static final Box RECORDS_BACK_RECT = Box.midTop(MENU_BTN_W, MENU_BTN_H, WIDTH / 2, RECORDS_PANEL.bottom() + 14);
     static final Box SHOP_BACK_RECT = Box.midTop(MENU_BTN_W, MENU_BTN_H, WIDTH / 2, SHOP_PANEL.bottom() + 24);
+    // -- кнопка «конфіденційність» (форма Google зі згодою на рекламу) -- окремим рядком унизу панелі,
+    // -- лише там, де Google її вимагає (ЄС, Велика Британія); тоді панель довша, а MENU нижче
+    static final int PRIVACY_ROW_H = 64;
+    static final Box PRIVACY_BTN = new Box(52, SETTINGS_PANEL.bottom() - 4, 296, 44);
+    static final Box SETTINGS_PANEL_PRIVACY = new Box(SETTINGS_PANEL.x, SETTINGS_PANEL.y, SETTINGS_PANEL.w,
+            SETTINGS_PANEL.h + PRIVACY_ROW_H);
+    static final Box BACK_BTN_PRIVACY = BACK_BTN_RECT.move(0, PRIVACY_ROW_H);
 
     // -- редактор свого шлейфу
     static final int EDIT_TITLE_Y = 56;
@@ -165,6 +172,19 @@ final class Game {
     static final Box EDIT_BACK_RECT = Box.midTop(MENU_BTN_W, MENU_BTN_H, WIDTH / 2, EDIT_PANEL.bottom() + 6);
 
     static final Box COINS_CHIP = new Box(10, 12, 128, 46);
+
+    // -- монети за рекламу: кнопка під лічильником монет. AD_LIMIT переглядів за AD_WINDOW, кожен перегляд
+    // -- «звільняється» через добу після себе; монети -- коли гравець додивився ролик (AdMob)
+    static final int AD_REWARD = 5;
+    static final int AD_LIMIT = 5;
+    static final long AD_WINDOW = 24 * 3600;      // -- сек
+    static final Box AD_BTN = new Box(10, 64, 128, 50);
+    static final int AD_PIP = 10, AD_PIP_GAP = 10;  // -- під кнопкою -- AD_LIMIT квадратиків: золоті -- скільки ще можна
+    static final int AD_PIP_COLOR = Gfx.rgb(255, 196, 50), AD_PIP_SHINE = Gfx.rgb(255, 236, 150);
+    static final int AD_INFO_Y = AD_BTN.bottom() + 14;   // -- центр квадратиків або таймера до наступного перегляду
+    static final int AD_NOTE_Y = 328;             // -- «повертайся пізніше» -- між заголовком і кнопкою PLAY
+    static final float AD_NOTE_TIME = 1.6f;
+    static final float AD_REWARD_TIME = 1f;       // -- сек, скільки злітає «+5» біля кнопки
 
     static final float MUSIC_MAX_VOLUME = 0.5f;
     static final float SFX_MAX_VOLUME = 0.6f;
@@ -247,6 +267,16 @@ final class Game {
     int viewW = WIDTH, viewH = HEIGHT, ox = 0, oy = 0;
     int floorY, hudTop, hudLeft, hudRight;
     Box settingsBtn = SETTINGS_BTN;
+    Box adBtn = AD_BTN;
+
+    // -- реклама за монети (MainActivity підключає AdMob)
+    Ads ads = Ads.NONE;
+    String adNote = "ad_limit";       // -- який напис показати після натискання кнопки реклами
+    float adNoteTime = 0f;            // -- і скільки йому ще висіти
+    float adRewardT = -1f;            // -- скільки сек тому нарахували монети (-1 -- «+5» не летить)
+    private boolean adRewardFx = false;   // -- монети дали, поки гра була за роликом: звук і «+5» -- коли повернулись
+    private long clockSec = -1;       // -- таймер під кнопкою: текст перераховується раз на секунду
+    private String clockText = "";
 
     // -- стан гри
     float birdY = BIRD_START_Y;
@@ -371,10 +401,12 @@ final class Game {
         menuSprites.put("shop", kit.shop);
         menuSprites.put("record", kit.record);
         menuSprites.put("settings", kit.settings);
+        menuSprites.put("ad", kit.ad);
         menuButtons.put("play", PLAY_BTN);
         menuButtons.put("shop", SHOP_BTN);
         menuButtons.put("record", RECORD_BTN);
         menuButtons.put("settings", settingsBtn);
+        menuButtons.put("ad", adBtn);
 
         newPipes();
     }
@@ -415,6 +447,8 @@ final class Game {
         hudRight = viewW - WIDTH - ox;
         settingsBtn = SETTINGS_BTN.move(hudRight, hudTop);
         menuButtons.put("settings", settingsBtn);
+        adBtn = AD_BTN.move(hudLeft, hudTop);       // -- кнопка реклами -- під монетками, біля лівого верхнього кута
+        menuButtons.put("ad", adBtn);
         scenery.setView(viewW, ox, viewH - HEIGHT, below);
         fillPipes();
     }
@@ -792,9 +826,14 @@ final class Game {
         drawArrow(c, right.centerX() - 2, rect.centerY() - 1, 1, hover(right));
     }
 
+    /** кнопка MENU під панеллю налаштувань (з рядком «конфіденційність» панель довша) */
+    private Box settingsBack() {
+        return ads.privacyRequired() ? BACK_BTN_PRIVACY : BACK_BTN_RECT;
+    }
+
     private void drawSettings(Canvas c) {
         Gfx.blitCenter(c, kit.text("settings"), WIDTH / 2, SETTINGS_TITLE_Y);
-        drawPanel(c, SETTINGS_PANEL);
+        drawPanel(c, ads.privacyRequired() ? SETTINGS_PANEL_PRIVACY : SETTINGS_PANEL);
 
         for (int i = 0; i < ROWS.length; i++) {
             Gfx.blit(c, kit.text(ROWS[i]), SETTINGS_PANEL.x + 26, ROW_Y0 + i * ROW_H);
@@ -803,9 +842,20 @@ final class Game {
         for (int i = 0; i < SLIDERS.length; i++) {
             drawSliderBar(c, SLIDERS[i], config.get(SLIDER_NAMES[i]), SETTINGS_PANEL.right() - 44);
         }
+        if (ads.privacyRequired()) {
+            drawPanel(c, PRIVACY_BTN);
+            if (hover(PRIVACY_BTN)) {
+                Gfx.roundRectStroke(c, COLOR_CARD_HOVER, PRIVACY_BTN.inflate(-4, -6).move(0, -2), 2, 8);
+            }
+            Gfx.blitCenter(c, kit.text("privacy"), PRIVACY_BTN.centerX(), PRIVACY_BTN.centerY() - 1);
+        }
     }
 
     private void settingsClick(int x, int y) {
+        if (ads.privacyRequired() && PRIVACY_BTN.contains(x, y)) {
+            ads.showPrivacy();
+            return;
+        }
         if (LANG_SELECTOR.contains(x, y)) {
             langStep(x < LANG_SELECTOR.x + SELECTOR_ARROW ? -1 : 1);
             return;
@@ -817,7 +867,7 @@ final class Game {
                 return;
             }
         }
-        if (BACK_BTN_RECT.contains(x, y)) {
+        if (settingsBack().contains(x, y)) {
             press("back");
         }
     }
@@ -835,6 +885,116 @@ final class Game {
         drawPanel(c, COINS_CHIP);
         drawCounter(c, kit.coinIcon, String.valueOf(progress.coins), COINS_CHIP.x + 12, COINS_CHIP.centerY() - 3);
         c.restore();
+    }
+
+    // -- монети за рекламу
+    /** сек від 1970 за годинником телефона -- від нього рахується ліміт переглядів */
+    static long now() {
+        return System.currentTimeMillis() / 1000;
+    }
+
+    /**
+     * скільки ще переглядів можна зараз (старші за добу не рахуються). Якщо годинник перевели назад,
+     * перегляд з «майбутнього» рахується, ніби був щойно
+     */
+    int adsLeft(long now) {
+        int n = 0;
+        for (long t : progress.adViews) {
+            if (now - t < AD_WINDOW) {
+                n++;
+            }
+        }
+        return Math.max(0, AD_LIMIT - n);
+    }
+
+    /** через скільки сек звільниться наступний перегляд */
+    private long adWait(long now) {
+        long first = Long.MAX_VALUE;
+        for (long t : progress.adViews) {
+            if (now - t < AD_WINDOW) {
+                first = Math.min(first, Math.min(t, now));
+            }
+        }
+        return first == Long.MAX_VALUE ? 0 : first + AD_WINDOW - now;
+    }
+
+    /** кнопка «монети за рекламу»: ліміт вичерпано -- «повертайся пізніше»; ролик ще не завантажився -- «ще не готова» */
+    private void watchAd() {
+        if (adsLeft(now()) == 0) {
+            adNote = "ad_limit";
+            adNoteTime = AD_NOTE_TIME;
+        } else if (!ads.ready()) {
+            ads.load();
+            adNote = "ad_wait";
+            adNoteTime = AD_NOTE_TIME;
+        } else {
+            ads.show(this::adReward);
+        }
+    }
+
+    /** ролик додивились: монети, перегляд записуємо (для ліміту) і одразу зберігаємо */
+    private void adReward() {
+        long now = now();
+        for (int i = progress.adViews.size() - 1; i >= 0; i--) {
+            long t = progress.adViews.get(i);
+            if (now - t >= AD_WINDOW) {
+                progress.adViews.remove(i);
+            } else if (t > now) {
+                progress.adViews.set(i, now);
+            }
+        }
+        progress.adViews.add(now);
+        progress.coins += AD_REWARD;
+        Store.save(saveFile, progress);
+        adRewardFx = true;
+        adNoteTime = 0f;     // -- «ще не готова» від попереднього натискання вже не до речі
+    }
+
+    /** 4:05:09 -- скільки годин, хвилин і секунд лишилось */
+    private String clock(long sec) {
+        sec = Math.max(0, sec);
+        if (sec != clockSec) {
+            long m = sec / 60 % 60, s = sec % 60;
+            clockSec = sec;
+            clockText = (sec / 3600) + (m < 10 ? ":0" : ":") + m + (s < 10 ? ":0" : ":") + s;
+        }
+        return clockText;
+    }
+
+    /**
+     * кнопка реклами під лічильником монет (біля лівого верхнього краю екрана). Під нею -- золоті квадратики
+     * (скільки переглядів ще можна, сірі -- вже використані) або, коли не лишилось жодного, таймер до наступного.
+     * Над кнопкою злітає «+5», коли монети нараховано
+     */
+    private void drawAd(Canvas c) {
+        long now = now();
+        int left = adsLeft(now);
+        c.save();
+        c.translate(hudLeft, hudTop);
+        kit.ad.draw(c, tTotal);
+        if (left > 0) {
+            int x = AD_BTN.centerX() - (AD_LIMIT * AD_PIP + (AD_LIMIT - 1) * AD_PIP_GAP) / 2;
+            int y = AD_INFO_Y - AD_PIP / 2;
+            for (int i = 0; i < AD_LIMIT; i++, x += AD_PIP + AD_PIP_GAP) {
+                Gfx.roundRect(c, COLOR_OUTLINE, x - 3, y - 3, AD_PIP + 6, AD_PIP + 6, 5);
+                Gfx.roundRect(c, i < left ? AD_PIP_COLOR : COLOR_SLIDER_BACK, x, y, AD_PIP, AD_PIP, 3);
+                if (i < left) {
+                    Gfx.fill(c, AD_PIP_SHINE, x + 2, y + 2, AD_PIP - 4, 2);
+                }
+            }
+        } else {
+            kit.drawNumber(c, clock(adWait(now)), AD_BTN.centerX(), AD_INFO_Y + 2);
+        }
+        if (adRewardT >= 0) {
+            float k = adRewardT / AD_REWARD_TIME;
+            kit.drawNumber(c, "+" + AD_REWARD, AD_BTN.right() + 26, AD_BTN.centerY() - 6 - 36 * k, "light", 0, 2,
+                    (int) (255 * (1 - k * k)));
+        }
+        c.restore();
+
+        if (adNoteTime > 0 && ((int) ((AD_NOTE_TIME - adNoteTime) * 6)) % 2 == 0) {
+            Gfx.blitCenter(c, kit.text(adNote), WIDTH / 2, AD_NOTE_Y);
+        }
     }
 
     /** панель після смерті: рахунок, рекорд, монетки за гру */
@@ -1586,6 +1746,9 @@ final class Game {
                     case "record":
                         inRecords = true;
                         break;
+                    case "ad":
+                        watchAd();
+                        break;
                     case "back":
                         if (editing) {
                             closeEditor();
@@ -1782,6 +1945,14 @@ final class Game {
         music.update(dts);
 
         notEnough = Math.max(0f, notEnough - dts);
+        adNoteTime = Math.max(0f, adNoteTime - dts);
+        if (adRewardFx) {
+            adRewardFx = false;
+            adRewardT = 0f;
+            sfx.play("coin");
+        } else if (adRewardT >= 0) {
+            adRewardT = adRewardT + dts < AD_REWARD_TIME ? adRewardT + dts : -1f;
+        }
         overTime = over ? overTime + dts : 0f;
 
         // -- анімація фону: у меню повільно, у грі як труби, після смерті стоїть
@@ -1792,11 +1963,18 @@ final class Game {
         }
 
         // -- кнопки: наведення (палець на кнопці) і натискання
+        // -- поки гравець не в грі, наступний ролик вантажиться заздалегідь (якщо ліміт ще не вичерпано)
+        int freeAds = start ? 0 : adsLeft(now());
+        if (freeAds > 0) {
+            ads.load();
+        }
         if (!start && (inSettings || inRecords || inShop)) {
-            Box back = inSettings ? BACK_BTN_RECT : inRecords ? RECORDS_BACK_RECT : editing ? EDIT_BACK_RECT : SHOP_BACK_RECT;
+            Box back = inSettings ? settingsBack() : inRecords ? RECORDS_BACK_RECT : editing ? EDIT_BACK_RECT : SHOP_BACK_RECT;
             Ui.SpriteButton button = editing && inShop ? kit.done : kit.menu;
             button.update(dts, hover(back), "back".equals(pressed) ? pressProgress : 0f);
         } else if (!start) {
+            // -- кнопка реклами темніша, коли зараз не спрацює: ліміт вичерпано або ролик ще не завантажився
+            kit.ad.off = freeAds == 0 || !ads.ready();
             for (Map.Entry<String, Ui.SpriteButton> e : menuSprites.entrySet()) {
                 e.getValue().update(dts, hover(menuButtons.get(e.getKey())),
                         e.getKey().equals(pressed) ? pressProgress : 0f);
@@ -1815,7 +1993,7 @@ final class Game {
             Ui.SpriteButton button = kit.menu;
             Box back;
             if (inSettings) {
-                back = BACK_BTN_RECT;
+                back = settingsBack();
                 drawSettings(c);
             } else if (inRecords) {
                 back = RECORDS_BACK_RECT;
@@ -1836,13 +2014,14 @@ final class Game {
             scenery.drawGround(c);
             kit.title.draw(c, tTotal);
             for (Ui.SpriteButton sprite : menuSprites.values()) {
-                if (sprite != kit.settings) {
+                if (sprite != kit.settings && sprite != kit.ad) {
                     sprite.draw(c, tTotal);
                 }
             }
             // -- шестерня -- у правому верхньому куті екрана, разом зі своїм хітбоксом settingsBtn
             kit.settings.draw(c, tTotal, kit.settings.x + hudRight, kit.settings.y + hudTop);
             drawMenuCounters(c);
+            drawAd(c);
 
         } else {
             scenery.drawBack(c);

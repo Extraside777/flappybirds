@@ -1,0 +1,14 @@
+{
+  "name": "flappybird-iphone",
+  "private": true,
+  "version": "1.1.0",
+  "description": "Flappy Bird для iPhone: веб-версія гри (web/) у застосунку Capacitor",
+  "dependencies": {
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capacitor-community/admob": "^8.3.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}
